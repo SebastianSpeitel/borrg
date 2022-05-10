@@ -1,8 +1,6 @@
 use borrg::Borg;
 use clap::{Args, Parser, Subcommand};
-use env_logger;
 use std::path::PathBuf;
-use toml;
 
 /// Borrg wrapper
 #[derive(Parser, Debug)]

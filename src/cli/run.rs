@@ -28,7 +28,7 @@ pub fn run<B: Backend + Send + Sync + 'static>(borg: Borg<B>, config: Config, ar
             .template(&template)
             .unwrap()
             // .tick_chars("◜◠◝◞◡◟");
-            .tick_strings(&vec!["▱▱▱▱", "▰▱▱▱", "▰▰▱▱", "▱▰▰▱", "▱▱▰▰", "▱▱▱▰"]);
+            .tick_strings(&["▱▱▱▱", "▰▱▱▱", "▰▰▱▱", "▱▰▰▱", "▱▱▰▰", "▱▱▱▰"]);
         pb.set_style(sty);
 
         pb.enable_steady_tick(Duration::from_secs(1));

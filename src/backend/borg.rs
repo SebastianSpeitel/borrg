@@ -12,7 +12,7 @@ impl TryFrom<serde_json::Value> for Event {
     fn try_from(value: serde_json::Value) -> Result<Self> {
         let _type = match value.get("type") {
             Some(serde_json::Value::String(t)) => t,
-            _ => Err("no type")?,
+            _ => return Err("no type".into()),
         };
 
         let time = || {
@@ -30,7 +30,7 @@ impl TryFrom<serde_json::Value> for Event {
             value
                 .get("path")
                 .and_then(|p| p.as_str())
-                .map(|p| PathBuf::from(p))
+                .map(PathBuf::from)
         };
         let message = || {
             value
@@ -80,7 +80,7 @@ impl TryFrom<serde_json::Value> for Event {
                 compressed_size: compressed_size().unwrap_or_default(),
                 deduplicated_size: deduplicated_size().unwrap_or_default(),
                 original_size: original_size().unwrap_or_default(),
-                path: path().unwrap_or_default().to_owned(),
+                path: path().unwrap_or_default(),
                 time: time(),
             },
             "progress_message" => Self::ProgressMessage {
@@ -93,15 +93,15 @@ impl TryFrom<serde_json::Value> for Event {
             "log_message" => Self::LogMessage {
                 name: name(),
                 level: level(),
-                message: message().unwrap_or_default().to_owned(),
+                message: message().unwrap_or_default(),
                 msgid: msgid(),
                 time: time(),
             },
             "file_status" => Self::FileStatus {
-                path: path().unwrap_or_default().to_owned(),
-                status: status().unwrap_or_default().to_owned(),
+                path: path().unwrap_or_default(),
+                status: status().unwrap_or_default(),
             },
-            _ => Err(format!("Unknown event type: {}", _type))?,
+            _ => return Err(format!("Unknown event type: {}", _type).into()),
         };
         Ok(event)
     }
@@ -144,9 +144,7 @@ impl<R: Read> Iterator for Events<R> {
             Ok(event) => Some(event),
             Err(e) => {
                 warn!("Failed to parse event: {}", e);
-                Some(Event::Error(
-                    Box::<dyn std::error::Error + Send + Sync>::from(e),
-                ))
+                Some(Event::Error(e))
             }
         }
     }
@@ -174,7 +172,7 @@ impl TryFrom<serde_json::Value> for RepoInfo {
         let cache_path = cache
             .get("path")
             .and_then(|p| p.as_str())
-            .map(|p| PathBuf::from(p))
+            .map(PathBuf::from)
             .ok_or("missing key: \"cache.path\"")?;
         let stats = cache
             .get("stats")
@@ -239,7 +237,7 @@ impl TryFrom<serde_json::Value> for RepoInfo {
         let security_dir = value
             .get("security_dir")
             .and_then(|s| s.as_str())
-            .map(|s| PathBuf::from(s))
+            .map(PathBuf::from)
             .ok_or("missing key: \"security_dir\"")?;
 
         Ok(RepoInfo {
@@ -350,7 +348,7 @@ impl Backend for BorgWrapper {
         self.pass_rate_limit(&mut cmd, &borg.rate_limit);
 
         if let Some(pass) = &repository.passphrase {
-            self.pass_passphrase(&mut cmd, &pass);
+            self.pass_passphrase(&mut cmd, pass);
         }
 
         cmd.arg("create");
@@ -426,7 +424,7 @@ impl Backend for BorgWrapper {
         cmd.arg("info");
 
         if let Some(pass) = &repository.passphrase {
-            self.pass_passphrase(&mut cmd, &pass);
+            self.pass_passphrase(&mut cmd, pass);
         }
 
         cmd.arg("--json");
@@ -442,6 +440,6 @@ impl Backend for BorgWrapper {
 
         let json = serde_json::from_slice::<serde_json::Value>(&output.stdout)?;
 
-        Ok(json.try_into()?)
+        json.try_into()
     }
 }

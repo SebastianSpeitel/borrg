@@ -151,27 +151,27 @@ impl Archive {
         Archive::new(name)
     }
 
-    pub fn path<'a>(&'a mut self, path: PathBuf) -> &'a mut Self {
+    pub fn path(&mut self, path: PathBuf) -> &mut Self {
         self.paths.push(path);
         self
     }
 
-    pub fn compression<'a>(&'a mut self, compression: Compression) -> &'a mut Self {
+    pub fn compression(&mut self, compression: Compression) -> &mut Self {
         self.compression = Some(compression);
         self
     }
 
-    pub fn pattern_file<'a>(&'a mut self, pattern_file: PathBuf) -> &'a mut Self {
+    pub fn pattern_file(&mut self, pattern_file: PathBuf) -> &mut Self {
         self.pattern_file = Some(pattern_file);
         self
     }
 
-    pub fn exclude_file<'a>(&'a mut self, exclude_file: PathBuf) -> &'a mut Self {
+    pub fn exclude_file(&mut self, exclude_file: PathBuf) -> &mut Self {
         self.exclude_file = Some(exclude_file);
         self
     }
 
-    pub fn comment<'a>(&'a mut self, comment: String) -> &'a mut Self {
+    pub fn comment(&mut self, comment: String) -> &mut Self {
         self.comment = Some(comment);
         self
     }
@@ -271,7 +271,7 @@ impl Repo {
         }
     }
 
-    pub fn passphrase<'a>(&'a mut self, passphrase: Passphrase) -> &'a mut Self {
+    pub fn passphrase(&mut self, passphrase: Passphrase) -> &mut Self {
         self.passphrase = Some(passphrase);
         self
     }
@@ -339,7 +339,7 @@ pub struct Borg<B: Backend> {
 }
 
 impl<B: Backend> Borg<B> {
-    pub fn dry_run<'a>(&'a mut self) -> &'a mut Self {
+    pub fn dry_run(&mut self) -> &mut Self {
         self.dry_run = true;
         self
     }

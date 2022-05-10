@@ -8,7 +8,7 @@ mod run;
 use log::debug;
 pub use run::*;
 
-use crate::{Archive, Backend, Borg, Compression, Error, Event, Passphrase, Repo, Result};
+use crate::{Archive, Backend, Borg, Compression, Error, Passphrase, Repo, Result};
 
 #[inline]
 pub fn resolve_path(path: &PathBuf) -> PathBuf {
@@ -272,7 +272,7 @@ pub fn get_backups(config: &toml::Value) -> Result<Vec<Backup>> {
             debug!("Backups: {:#?}", &backups);
             Ok(backups)
         }
-        _ => return Err("config is not a table".into()),
+        _ => Err("config is not a table".into()),
     }
 }
 
