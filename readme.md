@@ -1,5 +1,7 @@
 # Borrg
 
+[![Rust](https://github.com/SebastianSpeitel/borrg/actions/workflows/main.yml/badge.svg)](https://github.com/SebastianSpeitel/borrg/actions/workflows/main.yml)
+
 A borg wrapper written in rust
 
 ## Installation
