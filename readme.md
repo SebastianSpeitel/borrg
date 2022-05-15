@@ -11,7 +11,7 @@ cargo install --git https://github.com/SebastianSpeitel/borrg
 ```
 
 ## Usage
-    
+
 ```bash
 borrg --help
 ```
@@ -22,16 +22,19 @@ borrg --help
 
 ```toml
 [default]
+# Default values inherited by each backup
 compression = { algorithm = "zstd", level = 19, auto = true }
+# Also valid: compression = "zstd"
 progress = true
 stats = true
 
-# Name of the backup
-[remote]
+[[backup]]
 repository = "remote:/path/to/backup"
 passcommand = "sh -c 'pass backup | head -n1'"
+path = "/path/to/backup" # Defaults to "~"
 
-[local]
-repository = "/path/to/backup"
+[[backup]]
+repository = "/path/to/repo"
 passphrase = "..."
+compression = "none"
 ```

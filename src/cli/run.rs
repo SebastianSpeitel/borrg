@@ -18,7 +18,7 @@ pub fn run(borg: Borg, config: Config, args: RunArgs) {
     for (idx, backup) in config.backups.into_iter().enumerate() {
         let pb = mp.add(indicatif::ProgressBar::new(u64::MAX));
         let prefix = if multi {
-            format!("[{}] ", &backup.name)
+            format!("[{}] ", &backup)
         } else {
             String::new()
         };

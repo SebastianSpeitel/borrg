@@ -1,4 +1,4 @@
-use std::{num::NonZeroU8, path::PathBuf, sync::mpsc, time::Duration};
+use std::{fmt::Display, num::NonZeroU8, path::PathBuf, sync::mpsc, time::Duration};
 
 use clap::Args;
 // mod create;
@@ -36,9 +36,14 @@ pub fn resolve_path(path: &PathBuf) -> PathBuf {
 
 #[derive(Debug)]
 pub struct Backup {
-    pub name: String,
     pub repo: Repo,
     pub archive: Archive,
+}
+
+impl Display for Backup {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}::{}", self.repo.location, self.archive.name)
+    }
 }
 
 impl TryFrom<toml::Value> for Compression {
@@ -150,13 +155,14 @@ pub fn get_backups(config: &toml::Value) -> Result<Vec<Backup>> {
             // };
             let mut backups = Vec::new();
 
-            for (backup, config) in t.iter() {
-                // Skip default backup
-                if backup == "default" {
-                    continue;
-                }
+            let backup_array = match t.get("backup") {
+                Some(Array(a)) => a,
+                None => return Err("no backups in config".into()),
+                _ => return Err("backup is not an array".into()),
+            };
 
-                let repository = config
+            for backup in backup_array {
+                let repository = backup
                     .get("repository")
                     .or_else(|| default.get("repository"));
                 let mut repo: Repo = match repository {
@@ -165,7 +171,7 @@ pub fn get_backups(config: &toml::Value) -> Result<Vec<Backup>> {
                     _ => return Err("no repository configured".into()),
                 };
 
-                let name = config.get("name").or_else(|| default.get("name"));
+                let name = backup.get("name").or_else(|| default.get("name"));
                 let name = match name {
                     Some(String(s)) => Some(s.to_owned()),
                     Some(_) => return Err("name is not a string".into()),
@@ -177,7 +183,7 @@ pub fn get_backups(config: &toml::Value) -> Result<Vec<Backup>> {
                     None => Archive::today(),
                 };
 
-                let compression = config
+                let compression = backup
                     .get("compression")
                     .or_else(|| default.get("compression"))
                     .map(|c| Compression::try_from(c.to_owned()));
@@ -191,7 +197,7 @@ pub fn get_backups(config: &toml::Value) -> Result<Vec<Backup>> {
                     None => {}
                 }
 
-                match config
+                match backup
                     .get("passphrase")
                     .or_else(|| default.get("passphrase"))
                 {
@@ -204,7 +210,7 @@ pub fn get_backups(config: &toml::Value) -> Result<Vec<Backup>> {
                     Some(_) => return Err("passphrase is not a string".into()),
                     _ => {}
                 }
-                match config
+                match backup
                     .get("passcommand")
                     .or_else(|| default.get("passcommand"))
                 {
@@ -215,7 +221,7 @@ pub fn get_backups(config: &toml::Value) -> Result<Vec<Backup>> {
                     _ => {}
                 }
 
-                let paths = config.get("path").or_else(|| default.get("path"));
+                let paths = backup.get("path").or_else(|| default.get("path"));
                 match paths {
                     Some(Array(p)) => {
                         for path in p {
@@ -239,7 +245,7 @@ pub fn get_backups(config: &toml::Value) -> Result<Vec<Backup>> {
                     }
                 };
 
-                let pattern_file = config
+                let pattern_file = backup
                     .get("pattern_file")
                     .or_else(|| default.get("pattern_file"));
                 match pattern_file {
@@ -250,7 +256,7 @@ pub fn get_backups(config: &toml::Value) -> Result<Vec<Backup>> {
                     _ => {}
                 };
 
-                let exclude_file = config
+                let exclude_file = backup
                     .get("exclude_file")
                     .or_else(|| default.get("exclude_file"));
                 match exclude_file {
@@ -263,11 +269,7 @@ pub fn get_backups(config: &toml::Value) -> Result<Vec<Backup>> {
                     }
                 };
 
-                backups.push(Backup {
-                    name: backup.to_owned(),
-                    repo,
-                    archive,
-                });
+                backups.push(Backup { repo, archive });
             }
             debug!("Backups: {:#?}", &backups);
             Ok(backups)
