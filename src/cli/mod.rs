@@ -8,7 +8,7 @@ mod run;
 use log::debug;
 pub use run::*;
 
-use crate::{Archive, Backend, Borg, Compression, Error, Passphrase, Repo, Result};
+use crate::{Archive, Borg, Compression, Error, Passphrase, Repo, Result};
 
 #[inline]
 pub fn resolve_path(path: &PathBuf) -> PathBuf {

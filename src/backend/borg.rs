@@ -256,21 +256,15 @@ impl TryFrom<serde_json::Value> for RepoInfo {
     }
 }
 
-#[derive(Debug)]
-pub struct BorgWrapper {
-    path: PathBuf,
-}
+pub struct BorgWrapper {}
 
 impl BorgWrapper {
-    pub fn from_path(path: PathBuf) -> Self {
-        Self { path }
+    fn build_command() -> Command {
+        let borg_path = std::env::var("BORG_PATH").unwrap_or_else(|_| "borg".to_string());
+        Command::new(borg_path)
     }
 
-    fn build_command(&self) -> Command {
-        Command::new(&self.path)
-    }
-
-    fn pass_rate_limit(&self, cmd: &mut Command, rate_limit: &RateLimit) {
+    fn pass_rate_limit(cmd: &mut Command, rate_limit: &RateLimit) {
         match rate_limit {
             RateLimit {
                 up: Some(up),
@@ -299,7 +293,7 @@ impl BorgWrapper {
         }
     }
 
-    fn pass_passphrase(&self, cmd: &mut Command, passphrase: &Passphrase) {
+    fn pass_passphrase(cmd: &mut Command, passphrase: &Passphrase) {
         match passphrase {
             Passphrase::Passphrase(ref passphrase) => {
                 cmd.env("BORG_PASSPHRASE", passphrase);
@@ -314,18 +308,11 @@ impl BorgWrapper {
     }
 }
 
-impl Default for BorgWrapper {
-    fn default() -> Self {
-        Self::from_path("borg".into())
-    }
-}
-
 impl Backend for BorgWrapper {
     type Events = Events<ChildStderr>;
 
     fn init_repository(
-        &self,
-        borg: &Borg<Self>,
+        borg: &Borg,
         repository: &Repo,
         encryption: Encryption,
         append_only: bool,
@@ -333,22 +320,17 @@ impl Backend for BorgWrapper {
         todo!()
     }
 
-    fn create_archive(
-        &self,
-        borg: &Borg<Self>,
-        repository: &Repo,
-        archive: &Archive,
-    ) -> Result<Self::Events> {
+    fn create_archive(borg: &Borg, repository: &Repo, archive: &Archive) -> Result<Self::Events> {
         if archive.paths.is_empty() {
             return Err("No paths specified".into());
         }
 
-        let mut cmd = self.build_command();
+        let mut cmd = Self::build_command();
 
-        self.pass_rate_limit(&mut cmd, &borg.rate_limit);
+        Self::pass_rate_limit(&mut cmd, &borg.rate_limit);
 
         if let Some(pass) = &repository.passphrase {
-            self.pass_passphrase(&mut cmd, pass);
+            Self::pass_passphrase(&mut cmd, pass);
         }
 
         cmd.arg("create");
@@ -418,13 +400,13 @@ impl Backend for BorgWrapper {
         Ok(stderr.into())
     }
 
-    fn repo_info(&self, repository: &Repo) -> Result<RepoInfo> {
-        let mut cmd = self.build_command();
+    fn repo_info(repository: &Repo) -> Result<RepoInfo> {
+        let mut cmd = Self::build_command();
 
         cmd.arg("info");
 
         if let Some(pass) = &repository.passphrase {
-            self.pass_passphrase(&mut cmd, pass);
+            Self::pass_passphrase(&mut cmd, pass);
         }
 
         cmd.arg("--json");
