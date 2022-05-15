@@ -278,14 +278,14 @@ impl Repo {
 
     pub fn create_archive<B: Backend>(
         &self,
-        borg: &Borg<B>,
+        borg: &Borg,
         archive: &Archive,
     ) -> Result<impl Iterator<Item = Event>> {
-        borg.create_archive(self, archive)
+        B::create_archive(borg, self, archive)
     }
 
-    pub fn info<B: Backend>(&self, borg: &Borg<B>) -> Result<RepoInfo> {
-        borg.backend.repo_info(self)
+    pub fn info<B: Backend>(&self) -> Result<RepoInfo> {
+        B::repo_info(self)
     }
 }
 
@@ -331,65 +331,51 @@ pub struct RepoInfo {
     // "security_dir": "/home/seb/.config/borg/security/dd06d1d72e5925b63f9c929b088b1cfa2e6bd548f5037c05352a61d71e4d2819"
 }
 
-#[derive(Debug)]
-pub struct Borg<B: Backend> {
-    backend: B,
+#[derive(Debug, Default)]
+pub struct Borg {
     pub(crate) dry_run: bool,
     pub(crate) rate_limit: RateLimit,
 }
 
-impl<B: Backend> Borg<B> {
+impl Borg {
     pub fn dry_run(&mut self) -> &mut Self {
         self.dry_run = true;
         self
     }
 
-    pub fn init(
+    pub fn init<B: Backend>(
         &self,
         repository: &Repo,
         encryption: Encryption,
         append_only: bool,
     ) -> Result<Repo> {
-        self.backend
-            .init_repository(self, repository, encryption, append_only)
+        B::init_repository(self, repository, encryption, append_only)
     }
 
-    pub fn create_archive(&self, repository: &Repo, archive: &Archive) -> Result<B::Events> {
-        self.backend.create_archive(self, repository, archive)
-    }
-}
-
-impl<B: Backend + Default> Default for Borg<B> {
-    fn default() -> Self {
-        Self {
-            backend: B::default(),
-            dry_run: false,
-            rate_limit: RateLimit::default(),
-        }
+    pub fn create_archive<B: Backend>(
+        &self,
+        repository: &Repo,
+        archive: &Archive,
+    ) -> Result<B::Events> {
+        B::create_archive(self, repository, archive)
     }
 }
 
-pub trait Backend: Sized {
+pub trait Backend {
     type Events: Iterator<Item = Event>;
 
     /// Initialize an empty repository
     fn init_repository(
-        &self,
-        borg: &Borg<Self>,
+        borg: &Borg,
         repository: &Repo,
         encryption: Encryption,
         append_only: bool,
     ) -> Result<Repo>;
 
     /// Create new archive
-    fn create_archive(
-        &self,
-        borg: &Borg<Self>,
-        repository: &Repo,
-        archive: &Archive,
-    ) -> Result<Self::Events>;
+    fn create_archive(borg: &Borg, repository: &Repo, archive: &Archive) -> Result<Self::Events>;
 
-    fn repo_info(&self, repository: &Repo) -> Result<RepoInfo>;
+    fn repo_info(repository: &Repo) -> Result<RepoInfo>;
 }
 
 pub struct ByteSize(pub u64);

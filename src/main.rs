@@ -50,7 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    let mut borg: Borg<borrg::backend::borg::BorgWrapper> = Borg::default();
+    let mut borg: Borg = Borg::default();
     if cli.dry_run {
         borg.dry_run();
     }

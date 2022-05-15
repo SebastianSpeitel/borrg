@@ -1,3 +1,5 @@
+use crate::backend;
+
 use super::*;
 
 #[derive(Args, Debug)]
@@ -6,7 +8,7 @@ pub struct RunArgs {
     progress: bool,
 }
 
-pub fn run<B: Backend + Send + Sync + 'static>(borg: Borg<B>, config: Config, args: RunArgs) {
+pub fn run(borg: Borg, config: Config, args: RunArgs) {
     let borg = std::sync::Arc::new(borg);
     let (tx, rx) = mpsc::channel();
     let mp = indicatif::MultiProgress::new();
@@ -41,7 +43,8 @@ pub fn run<B: Backend + Send + Sync + 'static>(borg: Borg<B>, config: Config, ar
 
         let tx = tx.clone();
         let handle = std::thread::spawn(move || {
-            let events = borg.create_archive(&backup.repo, &backup.archive);
+            let events =
+                borg.create_archive::<backend::borg::BorgWrapper>(&backup.repo, &backup.archive);
 
             let events = match events {
                 Ok(e) => e,
