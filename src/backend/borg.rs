@@ -155,7 +155,7 @@ fn log_command(cmd: &Command) {
         "{} {}",
         cmd.get_program().to_string_lossy(),
         cmd.get_args()
-            .map(|a| a.to_string_lossy())
+            .map(|a| format!("\"{}\"", a.to_string_lossy()))
             .collect::<Vec<_>>()
             .join(" ")
     );
