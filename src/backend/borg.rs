@@ -73,6 +73,8 @@ impl TryFrom<serde_json::Value> for Event {
                 .and_then(|s| s.as_str())
                 .map(|s| s.to_owned())
         };
+        let current = || value.get("current").and_then(|c| c.as_u64());
+        let total = || value.get("total").and_then(|t| t.as_u64());
 
         let event = match _type.as_str() {
             "archive_progress" => Self::ArchiveProgress {
@@ -100,6 +102,18 @@ impl TryFrom<serde_json::Value> for Event {
             "file_status" => Self::FileStatus {
                 path: path().unwrap_or_default(),
                 status: status().unwrap_or_default(),
+            },
+            "progress_percent" => Self::ProgressPercent {
+                current: current().unwrap_or_default(),
+                finished: finished().unwrap_or_default(),
+                message: message().unwrap_or_default(),
+                msgid: msgid().unwrap_or_default(),
+                operation: operation().unwrap_or_default(),
+                time: time().unwrap_or_else(|| {
+                    warn!("no time in progress_percent");
+                    SystemTime::now()
+                }),
+                total: total().unwrap_or_default(),
             },
             _ => return Err(format!("Unknown event type: {}", _type).into()),
         };

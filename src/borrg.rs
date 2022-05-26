@@ -194,6 +194,15 @@ pub enum Event {
         operation: Option<u64>,
         time: Option<SystemTime>,
     },
+    ProgressPercent {
+        current: u64,
+        finished: bool,
+        message: String,
+        msgid: String,
+        operation: u64,
+        time: SystemTime,
+        total: u64,
+    },
     LogMessage {
         name: Option<String>,
         level: Option<log::Level>,
