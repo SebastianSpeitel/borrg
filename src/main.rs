@@ -1,6 +1,7 @@
 use borrg::Borg;
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
+mod util;
 
 /// Borrg wrapper
 #[derive(Parser, Debug)]
@@ -41,7 +42,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let cli = Cli::parse();
 
-    let config_path = borrg::cli::resolve_path(&cli.config);
+    let config_path = util::resolve_path(&cli.config);
     let config: toml::Value = toml::from_str(&std::fs::read_to_string(&config_path)?)?;
     let config = match borrg::cli::Config::try_from(config) {
         Ok(c) => c,

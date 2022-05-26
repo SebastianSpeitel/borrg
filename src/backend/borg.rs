@@ -1,4 +1,4 @@
-use crate::borrg::*;
+use crate::{borrg::*, util::resolve_path};
 use log::{debug, warn, Level};
 use std::{
     io::{BufRead, BufReader, Lines, Read},
@@ -376,7 +376,7 @@ impl Backend for BorgWrapper {
                 return Err("relative pattern file for multiple paths".into());
             };
             cmd.arg("--patterns-from");
-            cmd.arg(pattern_file.to_string_lossy().to_string());
+            cmd.arg(resolve_path(&pattern_file));
         }
 
         if let Some(exclude_file) = &archive.exclude_file {
@@ -388,7 +388,7 @@ impl Backend for BorgWrapper {
                 return Err("relative exclude file for multiple paths".into());
             };
             cmd.arg("--exclude-from");
-            cmd.arg(exclude_file.to_string_lossy().to_string());
+            cmd.arg(resolve_path(&exclude_file));
         }
 
         cmd.arg(format!("{}::{}", repository.location, archive.name));
