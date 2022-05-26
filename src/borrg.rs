@@ -254,15 +254,6 @@ pub struct Repo {
     pub(crate) passphrase: Option<Passphrase>,
 }
 
-impl<S: AsRef<str>> From<S> for Repo {
-    fn from(name: S) -> Self {
-        Repo {
-            location: name.as_ref().to_owned(),
-            passphrase: None,
-        }
-    }
-}
-
 impl Repo {
     pub fn new(location: String) -> Self {
         Self {
