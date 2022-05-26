@@ -27,7 +27,7 @@ pub enum Encryption {
 }
 
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Compression {
     None {
         obfuscation: Option<NonZeroU8>,

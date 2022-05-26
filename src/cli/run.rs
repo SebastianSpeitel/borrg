@@ -3,12 +3,19 @@ use crate::backend;
 use super::*;
 
 #[derive(Args, Debug)]
-pub struct RunArgs {
+pub struct Args {
     #[clap(short, long)]
     progress: bool,
+
+    #[clap(short, long)]
+    dry_run: bool,
 }
 
-pub fn run(borg: Borg, config: Config, args: RunArgs) {
+pub fn run(mut borg: Borg, config: Config, args: Args) {
+    if args.dry_run {
+        borg.dry_run();
+    }
+
     let borg = std::sync::Arc::new(borg);
     let (tx, rx) = mpsc::channel();
     let mp = indicatif::MultiProgress::new();

@@ -22,7 +22,7 @@ pub struct Cli {
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Run all configured backups
-    Run(borrg::cli::RunArgs),
+    Run(borrg::cli::run::Args),
     /// List backups
     List,
     /// Get info about a backup
@@ -46,7 +46,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = match borrg::cli::Config::try_from(config) {
         Ok(c) => c,
         Err(e) => {
-            return Err(e);
+            eprintln!("{}", e);
+            std::process::exit(1);
         }
     };
 
@@ -62,7 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             dbg!(borg);
         }
         Commands::Run(args) => {
-            borrg::cli::run(borg, config, args);
+            borrg::cli::run::run(borg, config, args);
         }
         _ => unimplemented!(),
     }

@@ -21,7 +21,7 @@ borrg --help
 `~/.config/borg/borrg.toml`
 
 ```toml
-[default]
+[template.default]
 # Default values inherited by each backup
 compression = { algorithm = "zstd", level = 19, auto = true }
 # Also valid: compression = "zstd"

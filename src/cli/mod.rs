@@ -1,14 +1,19 @@
-use std::{fmt::Display, num::NonZeroU8, path::PathBuf, sync::mpsc, time::Duration};
+use std::{
+    fmt::{Debug, Display},
+    path::PathBuf,
+    sync::mpsc,
+    time::Duration,
+};
 
 use clap::Args;
 // mod create;
-mod run;
+mod config;
+pub mod run;
+pub use config::Config;
 // use crate::{wrapper::BorgWrapper, Backend, Event};
 // pub use create::*;
-use log::debug;
-pub use run::*;
 
-use crate::{Archive, Borg, Compression, Error, Passphrase, Repo, Result};
+use crate::{Archive, Borg, Repo};
 
 #[inline]
 pub fn resolve_path(path: &PathBuf) -> PathBuf {
@@ -38,6 +43,7 @@ pub fn resolve_path(path: &PathBuf) -> PathBuf {
 pub struct Backup {
     pub repo: Repo,
     pub archive: Archive,
+    pub template: String,
 }
 
 impl Display for Backup {
@@ -46,237 +52,169 @@ impl Display for Backup {
     }
 }
 
-impl TryFrom<toml::Value> for Compression {
-    type Error = Error;
-    fn try_from(value: toml::Value) -> Result<Self> {
-        use toml::Value::*;
-        let compression = match value {
-            String(s) => match s.to_lowercase().as_str() {
-                "none" => Compression::None { obfuscation: None },
-                "lz4" => Compression::Lz4 {
-                    auto: false,
-                    obfuscation: None,
-                },
-                "lzma" => Compression::Lzma {
-                    level: None,
-                    auto: false,
-                    obfuscation: None,
-                },
-                "zlib" => Compression::Zlib {
-                    level: None,
-                    auto: false,
-                    obfuscation: None,
-                },
-                "zstd" => Compression::Zstd {
-                    level: None,
-                    auto: false,
-                    obfuscation: None,
-                },
-                _ => return Err("compression is not a valid value".into()),
-            },
-            Table(t) => {
-                let auto = match t.get("auto") {
-                    Some(Boolean(b)) => *b,
-                    None => false,
-                    _ => return Err("auto is not a boolean".into()),
-                };
-                let level = match t.get("level") {
-                    Some(Integer(i)) => Some(*i as u8),
-                    None => None,
-                    _ => return Err("level is not an integer".into()),
-                };
-                let obfuscation = match t.get("obfuscation") {
-                    Some(Integer(i)) => Some(NonZeroU8::try_from(*i as u8)?),
-                    None => None,
-                    _ => return Err("obfuscation is not an integer".into()),
-                };
-                match t.get("algorithm") {
-                    Some(String(s)) => match s.to_lowercase().as_str() {
-                        "none" => Compression::None { obfuscation },
-                        "lz4" => Compression::Lz4 { auto, obfuscation },
-                        "zstd" => Compression::Zstd {
-                            level,
-                            auto,
-                            obfuscation,
-                        },
-                        "zlib" => Compression::Zlib {
-                            level,
-                            auto,
-                            obfuscation,
-                        },
-                        "lzma" => Compression::Lzma {
-                            level,
-                            auto,
-                            obfuscation,
-                        },
-                        _ => return Err(format!("invalid algorithm: {}", s).into()),
-                    },
-                    None => return Err("no algorithm specified".into()),
-                    _ => return Err("algorithm is not a string".into()),
-                }
-            }
-            _ => return Err("compression is not a string or table".into()),
-        };
-        Ok(compression)
-    }
-}
+// impl TryFrom<toml::Value> for Repo{
+//     type Error = ConfigError;
+//     fn try_from(value: toml::Value) -> std::result::Result<Self,Self::Error> {
+//         unimplemented!()
+//     }
+// }
 
-#[derive(Debug)]
-pub struct Config {
-    pub backups: Vec<Backup>,
-}
+// #[derive(Debug)]
+// pub struct Config {
+//     pub backups: Vec<Backup>,
+// }
 
-impl TryFrom<toml::Value> for Config {
-    type Error = Error;
-    fn try_from(value: toml::Value) -> Result<Self> {
-        let backups = get_backups(&value)?;
-        Ok(Config { backups })
-    }
-}
+// impl TryFrom<toml::Value> for Config {
+//     type Error = Error;
+//     fn try_from(value: toml::Value) -> Result<Self> {
+//         let backups = get_backups(&value)?;
+//         Ok(Config { backups })
+//     }
+// }
 
-pub fn get_backups(config: &toml::Value) -> Result<Vec<Backup>> {
-    use toml::map::Map;
-    use toml::Value::*;
+// pub fn get_backups(config: &toml::Value) -> Result<Vec<Backup>> {
+//     use toml::map::Map;
+//     use toml::Value::*;
 
-    match config {
-        Table(t) => {
-            let default = t.get("default");
-            let default = match default {
-                Some(Table(t)) => t.to_owned(),
-                None => Map::new(),
-                _ => return Err("default is not a table".into()),
-            };
+//     match config {
+//         Table(t) => {
+//             let default = t.get("default");
+//             let default = match default {
+//                 Some(Table(t)) => t.to_owned(),
+//                 None => Map::new(),
+//                 _ => return Err("default is not a table".into()),
+//             };
 
-            // let backups = t.get("backup");
-            // let backup_configs = match backups {
-            //     Some(Table(b)) => b,
-            //     None => return Err("no backups in config".into()),
-            //     _ => return Err("backup is not an array".into()),
-            // };
-            let mut backups = Vec::new();
+//             // let backups = t.get("backup");
+//             // let backup_configs = match backups {
+//             //     Some(Table(b)) => b,
+//             //     None => return Err("no backups in config".into()),
+//             //     _ => return Err("backup is not an array".into()),
+//             // };
+//             let mut backups = Vec::new();
 
-            let backup_array = match t.get("backup") {
-                Some(Array(a)) => a,
-                None => return Err("no backups in config".into()),
-                _ => return Err("backup is not an array".into()),
-            };
+//             let backup_array = match t.get("backup") {
+//                 Some(Array(a)) => a,
+//                 None => return Err("no backups in config".into()),
+//                 _ => return Err("backup is not an array".into()),
+//             };
 
-            for backup in backup_array {
-                let repository = backup
-                    .get("repository")
-                    .or_else(|| default.get("repository"));
-                let mut repo: Repo = match repository {
-                    Some(String(s)) => s.to_owned().into(),
-                    Some(_) => return Err("repository is not a string".into()),
-                    _ => return Err("no repository configured".into()),
-                };
+//             for backup in backup_array {
+//                 let repository = backup
+//                     .get("repository")
+//                     .or_else(|| default.get("repository"));
+//                 let mut repo: Repo = match repository {
+//                     Some(String(s)) => s.to_owned().into(),
+//                     Some(_) => return Err("repository is not a string".into()),
+//                     _ => return Err("no repository configured".into()),
+//                 };
 
-                let name = backup.get("name").or_else(|| default.get("name"));
-                let name = match name {
-                    Some(String(s)) => Some(s.to_owned()),
-                    Some(_) => return Err("name is not a string".into()),
-                    _ => None,
-                };
+//                 let name = backup.get("name").or_else(|| default.get("name"));
+//                 let name = match name {
+//                     Some(String(s)) => Some(s.to_owned()),
+//                     Some(_) => return Err("name is not a string".into()),
+//                     _ => None,
+//                 };
 
-                let mut archive = match name {
-                    Some(name) => Archive::new(name.to_owned()),
-                    None => Archive::today(),
-                };
+//                 let mut archive = match name {
+//                     Some(name) => Archive::new(name.to_owned()),
+//                     None => Archive::today(),
+//                 };
 
-                let compression = backup
-                    .get("compression")
-                    .or_else(|| default.get("compression"))
-                    .map(|c| Compression::try_from(c.to_owned()));
-                match compression {
-                    Some(Ok(c)) => {
-                        archive.compression(c);
-                    }
-                    Some(Err(e)) => {
-                        return Err(e);
-                    }
-                    None => {}
-                }
+//                 let compression = backup
+//                     .get("compression")
+//                     .or_else(|| default.get("compression"))
+//                     .map(|c| Compression::try_from(c.to_owned()));
+//                 match compression {
+//                     Some(Ok(c)) => {
+//                         archive.compression(c);
+//                     }
+//                     Some(Err(e)) => {
+//                         return Err(e);
+//                     }
+//                     None => {}
+//                 }
 
-                match backup
-                    .get("passphrase")
-                    .or_else(|| default.get("passphrase"))
-                {
-                    Some(String(s)) => {
-                        repo.passphrase(Passphrase::Passphrase(s.to_owned()));
-                    }
-                    Some(Integer(fd)) => {
-                        repo.passphrase(Passphrase::FileDescriptor(*fd as i32));
-                    }
-                    Some(_) => return Err("passphrase is not a string".into()),
-                    _ => {}
-                }
-                match backup
-                    .get("passcommand")
-                    .or_else(|| default.get("passcommand"))
-                {
-                    Some(String(s)) => {
-                        repo.passphrase(Passphrase::Command(s.to_owned()));
-                    }
-                    Some(_) => return Err("passcommand is not a string".into()),
-                    _ => {}
-                }
+//                 match backup
+//                     .get("passphrase")
+//                     .or_else(|| default.get("passphrase"))
+//                 {
+//                     Some(String(s)) => {
+//                         repo.passphrase(Passphrase::Passphrase(s.to_owned()));
+//                     }
+//                     Some(Integer(fd)) => {
+//                         repo.passphrase(Passphrase::FileDescriptor(*fd as i32));
+//                     }
+//                     Some(_) => return Err("passphrase is not a string".into()),
+//                     _ => {}
+//                 }
+//                 match backup
+//                     .get("passcommand")
+//                     .or_else(|| default.get("passcommand"))
+//                 {
+//                     Some(String(s)) => {
+//                         repo.passphrase(Passphrase::Command(s.to_owned()));
+//                     }
+//                     Some(_) => return Err("passcommand is not a string".into()),
+//                     _ => {}
+//                 }
 
-                let paths = backup.get("path").or_else(|| default.get("path"));
-                match paths {
-                    Some(Array(p)) => {
-                        for path in p {
-                            if let String(s) = path {
-                                archive.path(PathBuf::from(s));
-                            } else {
-                                return Err("path is not a string".into());
-                            }
-                        }
-                    }
-                    Some(String(p)) => {
-                        archive.path(p.into());
-                    }
-                    Some(_) => return Err("path is not an array or string".into()),
-                    _ => {
-                        let home_dir = match dirs::home_dir() {
-                            Some(h) => h,
-                            None => return Err("no home directory".into()),
-                        };
-                        archive.path(home_dir);
-                    }
-                };
+//                 let paths = backup.get("path").or_else(|| default.get("path"));
+//                 match paths {
+//                     Some(Array(p)) => {
+//                         for path in p {
+//                             if let String(s) = path {
+//                                 archive.path(PathBuf::from(s));
+//                             } else {
+//                                 return Err("path is not a string".into());
+//                             }
+//                         }
+//                     }
+//                     Some(String(p)) => {
+//                         archive.path(p.into());
+//                     }
+//                     Some(_) => return Err("path is not an array or string".into()),
+//                     _ => {
+//                         let home_dir = match dirs::home_dir() {
+//                             Some(h) => h,
+//                             None => return Err("no home directory".into()),
+//                         };
+//                         archive.path(home_dir);
+//                     }
+//                 };
 
-                let pattern_file = backup
-                    .get("pattern_file")
-                    .or_else(|| default.get("pattern_file"));
-                match pattern_file {
-                    Some(String(s)) => {
-                        archive.pattern_file(PathBuf::from(s));
-                    }
-                    Some(_) => return Err("pattern_file is not a string".into()),
-                    _ => {}
-                };
+//                 let pattern_file = backup
+//                     .get("pattern_file")
+//                     .or_else(|| default.get("pattern_file"));
+//                 match pattern_file {
+//                     Some(String(s)) => {
+//                         archive.pattern_file(PathBuf::from(s));
+//                     }
+//                     Some(_) => return Err("pattern_file is not a string".into()),
+//                     _ => {}
+//                 };
 
-                let exclude_file = backup
-                    .get("exclude_file")
-                    .or_else(|| default.get("exclude_file"));
-                match exclude_file {
-                    Some(String(s)) => {
-                        archive.exclude_file(PathBuf::from(s));
-                    }
-                    Some(_) => return Err("exclude_file is not a string".into()),
-                    _ => {
-                        archive.exclude_file(PathBuf::from(".borgignore"));
-                    }
-                };
+//                 let exclude_file = backup
+//                     .get("exclude_file")
+//                     .or_else(|| default.get("exclude_file"));
+//                 match exclude_file {
+//                     Some(String(s)) => {
+//                         archive.exclude_file(PathBuf::from(s));
+//                     }
+//                     Some(_) => return Err("exclude_file is not a string".into()),
+//                     _ => {
+//                         archive.exclude_file(PathBuf::from(".borgignore"));
+//                     }
+//                 };
 
-                backups.push(Backup { repo, archive });
-            }
-            debug!("Backups: {:#?}", &backups);
-            Ok(backups)
-        }
-        _ => Err("config is not a table".into()),
-    }
-}
+//                 backups.push(Backup { repo, archive });
+//             }
+//             debug!("Backups: {:#?}", &backups);
+//             Ok(backups)
+//         }
+//         _ => Err("config is not a table".into()),
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
