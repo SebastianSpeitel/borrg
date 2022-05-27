@@ -1,5 +1,5 @@
 use borrg::Borg;
-use clap::{Args, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 mod util;
 
@@ -30,11 +30,6 @@ enum Commands {
     Info { backup: String },
     /// Validate config
     Debug,
-}
-
-#[derive(Args, Debug)]
-struct Create {
-    backup: Vec<String>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
