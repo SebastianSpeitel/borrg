@@ -392,12 +392,7 @@ impl Backend for BorgWrapper {
         }
 
         cmd.arg(format!("{}::{}", repository.location, archive.name));
-        cmd.args(
-            archive
-                .paths
-                .iter()
-                .map(|p| p.to_string_lossy().to_string()),
-        );
+        cmd.args(archive.paths.iter().map(resolve_path));
 
         log_command(&cmd);
 
