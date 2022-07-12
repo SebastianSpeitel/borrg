@@ -38,9 +38,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     let config_path = util::resolve_path(&cli.config);
-    let config: toml::Value = toml::from_str(&std::fs::read_to_string(&config_path)?)?;
-    let config = match borrg::cli::Config::try_from(config) {
-        Ok(c) => c,
+    let config = borrg::cli::Config::load(&config_path);
+
+    let config = match config {
+        Ok(config) => config,
         Err(e) => {
             eprintln!("{}", e);
             std::process::exit(1);

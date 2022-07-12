@@ -1,4 +1,4 @@
-use crate::backend;
+use crate::{backend, Borg};
 
 use super::*;
 
@@ -25,7 +25,7 @@ pub fn run(mut borg: Borg, config: Config, args: Args) {
     for (idx, backup) in config.backups.into_iter().enumerate() {
         let pb = mp.add(indicatif::ProgressBar::new(u64::MAX));
         let prefix = if multi {
-            format!("[{}] ", &backup)
+            format!("[{}::{}] ", &backup.0, &backup.1)
         } else {
             String::new()
         };
@@ -50,8 +50,7 @@ pub fn run(mut borg: Borg, config: Config, args: Args) {
 
         let tx = tx.clone();
         let handle = std::thread::spawn(move || {
-            let events =
-                borg.create_archive::<backend::borg::BorgWrapper>(&backup.repo, &backup.archive);
+            let events = borg.create_archive::<backend::borg::BorgWrapper>(&backup.0, &backup.1);
 
             let events = match events {
                 Ok(e) => e,

@@ -1,32 +1,10 @@
-use std::{
-    fmt::{Debug, Display},
-    path::PathBuf,
-    sync::mpsc,
-    time::Duration,
-};
+use std::{fmt::Debug, sync::mpsc, time::Duration};
 
 use clap::Args;
 // mod create;
 mod config;
 pub mod run;
-pub use config::Config;
-// use crate::{wrapper::BorgWrapper, Backend, Event};
-// pub use create::*;
-
-use crate::{Archive, Borg, Repo};
-
-#[derive(Debug)]
-pub struct Backup {
-    pub repo: Repo,
-    pub archive: Archive,
-    pub template: String,
-}
-
-impl Display for Backup {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}::{}", self.repo.location, self.archive.name)
-    }
-}
+pub use config::*;
 
 // impl TryFrom<toml::Value> for Repo{
 //     type Error = ConfigError;

@@ -7,7 +7,7 @@ pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Passphrase {
     Passphrase(String),
     Command(String),
@@ -177,6 +177,12 @@ impl Archive {
     }
 }
 
+impl Display for Archive {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
 #[derive(Debug)]
 pub enum Event {
     ArchiveProgress {
@@ -286,6 +292,12 @@ impl Repo {
 
     pub fn info<B: Backend>(&self) -> Result<RepoInfo> {
         B::repo_info(self)
+    }
+}
+
+impl Display for Repo {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.location)
     }
 }
 
