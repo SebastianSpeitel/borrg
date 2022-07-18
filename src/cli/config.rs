@@ -639,3 +639,85 @@ impl Config {
         Ok(Self { backups })
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_empty() {
+        let config = "";
+        let value = config.parse().unwrap();
+        let result: Result<Vec<(Repo, Archive)>, ConfigError> = ConfigProperty::parse(&value);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_defaults() {
+        let config = r#"
+        [[backup]]
+        repository = "."
+        "#;
+
+        let value = config.parse().unwrap();
+        let result: Result<Vec<(Repo, Archive)>, ConfigError> = ConfigProperty::parse(&value);
+
+        dbg!(&result);
+        assert!(result.is_ok());
+        let results = result.unwrap();
+        assert_eq!(results.len(), 1);
+        let (repo, archive) = results.first().unwrap();
+        assert_eq!(repo.location, ".");
+        assert_eq!(repo.passphrase, None);
+        assert_eq!(archive.paths, vec![PathBuf::from("~")]);
+        assert_eq!(archive.compression, None);
+        assert_eq!(archive.pattern_file, None);
+        assert_eq!(archive.exclude_file, Some(PathBuf::from(".borgignore")));
+    }
+
+    #[test]
+    fn test_template() {
+        let config = r#"
+        [template.default]
+        compression = "lz4"
+
+        [[backup]]
+        repository = "."
+        "#;
+
+        let value = config.parse().unwrap();
+        let result: Result<Vec<(Repo, Archive)>, ConfigError> = ConfigProperty::parse(&value);
+
+        dbg!(&result);
+        assert!(result.is_ok());
+        let results = result.unwrap();
+        assert_eq!(results.len(), 1);
+        let (_, archive) = results.first().unwrap();
+        assert!(matches!(archive.compression, Some(Compression::Lz4 { .. })));
+    }
+
+    #[test]
+    fn test_custom_template() {
+        let config = r#"
+        [template.custom]
+        compression = "lz4"
+
+        [[backup]]
+        template = "custom"
+        repository = "."
+        "#;
+
+        let value = config.parse().unwrap();
+        let result: Result<Vec<(Repo, Archive)>, ConfigError> = ConfigProperty::parse(&value);
+
+        dbg!(&result);
+        assert!(result.is_ok());
+        let results = result.unwrap();
+        assert_eq!(results.len(), 1);
+        let (_, archive) = results.first().unwrap();
+        assert!(matches!(archive.compression, Some(Compression::Lz4 { .. })));
+    }
+}

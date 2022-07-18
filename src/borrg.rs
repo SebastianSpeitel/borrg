@@ -7,7 +7,7 @@ pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[non_exhaustive]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Passphrase {
     Passphrase(String),
     Command(String),
@@ -27,7 +27,7 @@ pub enum Encryption {
 }
 
 #[non_exhaustive]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Compression {
     None {
         obfuscation: Option<NonZeroU8>,
