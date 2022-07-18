@@ -108,14 +108,7 @@ struct BackupConfig {
 impl BackupConfig {
     pub fn set_defaults(&mut self) {
         self.template = None;
-
-        if self.paths.is_empty() {
-            self.paths.push(PathBuf::from("~"));
-        }
-
-        if self.exclude_file.is_none() {
-            self.exclude_file = Some(PathBuf::from(".borgignore"));
-        }
+        self.resolve_with(&Default::default());
     }
 
     pub fn resolve(mut self, templates: &[(String, BackupConfig)]) -> Result<Self, ConfigError> {
@@ -190,6 +183,20 @@ impl BackupConfig {
         // Inherit exclude file
         if self.exclude_file.is_none() {
             self.exclude_file = template.exclude_file.to_owned();
+        }
+    }
+}
+
+impl Default for BackupConfig {
+    fn default() -> Self {
+        BackupConfig {
+            template: None,
+            repo: None,
+            passphrase: None,
+            paths: vec![PathBuf::from("~")],
+            compression: None,
+            pattern_file: None,
+            exclude_file: Some(PathBuf::from(".borgignore")),
         }
     }
 }
