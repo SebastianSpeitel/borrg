@@ -592,15 +592,21 @@ impl ConfigProperty for Vec<(Repo, Archive)> {
             ConfigProperty::from_map(map, "template")?.unwrap_or_default();
 
         // Set default values in default tepmplate
-        let templates = templates
+        let mut has_default_template = false;
+        let mut templates = templates
             .into_iter()
             .map(|(n, mut c)| {
                 if n == "default" {
+                    has_default_template = true;
                     c.set_defaults();
                 }
                 (n, c)
             })
             .collect::<Vec<_>>();
+
+        if !has_default_template {
+            templates.push(("default".to_string(), BackupConfig::default()));
+        }
 
         let backups: Vec<BackupConfig> =
             ConfigProperty::from_map(map, "backup")?.unwrap_or_default();
