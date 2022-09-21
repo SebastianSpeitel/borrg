@@ -378,6 +378,11 @@ impl Backend for BorgWrapper {
             } else {
                 return Err("relative pattern file for multiple paths".into());
             };
+            if !pattern_file.is_file() {
+                return Err(
+                    format!("pattern file does not exist: {}", pattern_file.display()).into(),
+                );
+            }
             cmd.arg("--patterns-from");
             cmd.arg(resolve_path(&pattern_file));
         }
@@ -390,6 +395,11 @@ impl Backend for BorgWrapper {
             } else {
                 return Err("relative exclude file for multiple paths".into());
             };
+            if !exclude_file.is_file() {
+                return Err(
+                    format!("exclude file does not exist: {}", exclude_file.display()).into(),
+                );
+            }
             cmd.arg("--exclude-from");
             cmd.arg(resolve_path(&exclude_file));
         }
