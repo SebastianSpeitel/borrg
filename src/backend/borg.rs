@@ -1,5 +1,5 @@
 use crate::{borrg::*, util::resolve_path};
-use log::{debug, warn, Level};
+use log::{debug, trace, warn, Level};
 use std::{
     io::{BufRead, BufReader, Lines, Read},
     path::PathBuf,
@@ -142,6 +142,8 @@ impl<R: Read> Iterator for Events<R> {
             Ok(line) => line,
             Err(err) => return Some(Event::Error(Box::new(err))),
         };
+
+        trace!("[borg] {:#?}", line);
 
         let json: std::result::Result<serde_json::Value, _> = serde_json::from_str(&line);
         let json = match json {
