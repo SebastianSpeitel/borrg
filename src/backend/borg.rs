@@ -327,6 +327,7 @@ impl BorgWrapper {
 impl Backend for BorgWrapper {
     type Events = Events<ChildStderr>;
 
+    #[allow(unused_variables)]
     fn init_repository(
         borg: &Borg,
         repository: &Repo,
