@@ -2,6 +2,7 @@ use crate::{borrg::*, util::resolve_path};
 use log::{debug, trace, warn, Level};
 use std::{
     io::{BufRead, BufReader, Lines, Read},
+    ops::{Deref, DerefMut},
     path::PathBuf,
     process::{ChildStderr, Command, Stdio},
     time::{Duration, SystemTime},
@@ -272,57 +273,78 @@ impl TryFrom<serde_json::Value> for RepoInfo {
     }
 }
 
-pub struct BorgWrapper {}
+struct BorgCommand(Command);
 
-impl BorgWrapper {
-    fn build_command() -> Command {
-        let borg_path = std::env::var("BORG_PATH").unwrap_or_else(|_| "borg".to_string());
-        Command::new(borg_path)
-    }
-
-    fn pass_rate_limit(cmd: &mut Command, rate_limit: &RateLimit) {
+impl BorgCommand {
+    pub(self) fn rate_limit(&mut self, rate_limit: &RateLimit) -> &mut Self {
         match rate_limit {
             RateLimit {
                 up: Some(up),
                 down: Some(down),
             } => {
-                cmd.arg("--upload-ratelimit");
-                cmd.arg(up.to_string());
-                cmd.arg("--download-ratelimit");
-                cmd.arg(down.to_string());
+                self.arg("--upload-ratelimit");
+                self.arg(up.to_string());
+                self.arg("--download-ratelimit");
+                self.arg(down.to_string());
             }
             RateLimit {
                 up: Some(up),
                 down: None,
             } => {
-                cmd.arg("--upload-ratelimit");
-                cmd.arg(up.to_string());
+                self.arg("--upload-ratelimit");
+                self.arg(up.to_string());
             }
             RateLimit {
                 up: None,
                 down: Some(down),
             } => {
-                cmd.arg("--download-ratelimit");
-                cmd.arg(down.to_string());
+                self.arg("--download-ratelimit");
+                self.arg(down.to_string());
             }
             _ => {}
-        }
+        };
+        self
     }
 
-    fn pass_passphrase(cmd: &mut Command, passphrase: &Passphrase) {
+    pub(self) fn passphrase(&mut self, passphrase: &Passphrase) -> &mut Self {
         match passphrase {
             Passphrase::Passphrase(ref passphrase) => {
-                cmd.env("BORG_PASSPHRASE", passphrase);
+                self.env("BORG_PASSPHRASE", passphrase);
             }
             Passphrase::Command(ref command) => {
-                cmd.env("BORG_PASSCOMMAND", command);
+                self.env("BORG_PASSCOMMAND", command);
             }
             Passphrase::FileDescriptor(fd) => {
-                cmd.env("BORG_PASSPHRASE_FD", fd.to_string());
+                self.env("BORG_PASSPHRASE_FD", fd.to_string());
             }
         }
+        self
     }
 }
+
+impl Default for BorgCommand {
+    fn default() -> Self {
+        let borg_path = std::env::var("BORG_PATH").unwrap_or_else(|_| "borg".to_owned());
+
+        Self(Command::new(borg_path))
+    }
+}
+
+impl Deref for BorgCommand {
+    type Target = Command;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for BorgCommand {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+pub struct BorgWrapper {}
 
 impl Backend for BorgWrapper {
     type Events = Events<ChildStderr>;
@@ -342,12 +364,12 @@ impl Backend for BorgWrapper {
             return Err("No paths specified".into());
         }
 
-        let mut cmd = Self::build_command();
+        let mut cmd = BorgCommand::default();
 
-        Self::pass_rate_limit(&mut cmd, &borg.rate_limit);
+        cmd.rate_limit(&borg.rate_limit);
 
         if let Some(pass) = &repository.passphrase {
-            Self::pass_passphrase(&mut cmd, pass);
+            cmd.passphrase(pass);
         }
 
         cmd.arg("create");
@@ -423,12 +445,12 @@ impl Backend for BorgWrapper {
     }
 
     fn repo_info(repository: &Repo) -> Result<RepoInfo> {
-        let mut cmd = Self::build_command();
+        let mut cmd = BorgCommand::default();
 
         cmd.arg("info");
 
         if let Some(pass) = &repository.passphrase {
-            Self::pass_passphrase(&mut cmd, pass);
+            cmd.passphrase(pass);
         }
 
         cmd.arg("--json");
