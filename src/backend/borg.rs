@@ -320,13 +320,38 @@ impl BorgCommand {
         }
         self
     }
+
+    pub(self) fn progress(&mut self) -> &mut Self {
+        self.arg("--progress");
+        self
+    }
+
+    pub(self) fn log_level(&mut self, level: log::Level) -> &mut Self {
+        match level {
+            log::Level::Error => self.arg("--error"),
+            log::Level::Warn => self.arg("--warning"),
+            log::Level::Info => self.arg("--info"),
+            log::Level::Debug => self.arg("--debug"),
+            log::Level::Trace => self.arg("--debug"),
+        };
+        self
+    }
 }
 
 impl Default for BorgCommand {
     fn default() -> Self {
         let borg_path = std::env::var("BORG_PATH").unwrap_or_else(|_| "borg".to_owned());
 
-        Self(Command::new(borg_path))
+        let mut cmd = Self(Command::new(borg_path));
+
+        match log::max_level().to_level() {
+            Some(level) => {
+                cmd.log_level(level);
+            }
+            None => {}
+        };
+
+        cmd
     }
 }
 
@@ -375,7 +400,7 @@ impl Backend for BorgWrapper {
         cmd.arg("create");
 
         // TODO: make this configurable
-        cmd.arg("--progress");
+        cmd.progress();
         cmd.arg("--stats");
         // cmd.arg("--list");
         cmd.arg("--log-json");
