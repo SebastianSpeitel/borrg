@@ -150,8 +150,8 @@ impl<R: Read> Iterator for Events<R> {
         let json = match json {
             Ok(json) => json,
             Err(e) => {
-                warn!("Failed to parse JSON: {}", e);
-                return Some(Event::Error(Box::new(e)));
+                warn!("Failed to parse borg log event: {line:?} ({e})");
+                return Some(Event::Other(line));
             }
         };
 
@@ -160,8 +160,8 @@ impl<R: Read> Iterator for Events<R> {
         match Event::try_from(json) {
             Ok(event) => Some(event),
             Err(e) => {
-                warn!("Failed to parse event: {}", e);
-                Some(Event::Error(e))
+                warn!("Invalid borg log event: {line:?} ({e})");
+                Some(Event::Other(line))
             }
         }
     }
