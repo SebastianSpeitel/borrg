@@ -421,7 +421,7 @@ impl Backend for BorgWrapper {
             let pattern_file = if pattern_file.is_absolute() {
                 pattern_file.to_owned()
             } else if let Some(path) = archive.paths.first() {
-                path.join(pattern_file)
+                resolve_path(&path.join(pattern_file))
             } else {
                 return Err("relative pattern file for multiple paths".into());
             };
@@ -431,14 +431,14 @@ impl Backend for BorgWrapper {
                 );
             }
             cmd.arg("--patterns-from");
-            cmd.arg(resolve_path(&pattern_file));
+            cmd.arg(pattern_file);
         }
 
         if let Some(exclude_file) = &archive.exclude_file {
             let exclude_file = if exclude_file.is_absolute() {
                 exclude_file.to_owned()
             } else if let Some(path) = archive.paths.first() {
-                path.join(exclude_file)
+                resolve_path(&path.join(exclude_file))
             } else {
                 return Err("relative exclude file for multiple paths".into());
             };
@@ -448,7 +448,7 @@ impl Backend for BorgWrapper {
                 );
             }
             cmd.arg("--exclude-from");
-            cmd.arg(resolve_path(&exclude_file));
+            cmd.arg(exclude_file);
         }
 
         cmd.arg(format!("{}::{}", repository.location, archive.name));
