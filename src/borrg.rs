@@ -220,6 +220,7 @@ pub enum Event {
         status: String,
         path: PathBuf,
     },
+    Other(String),
     Error(Error),
 }
 
@@ -258,7 +259,10 @@ impl Display for Event {
             LogMessage { message, .. } => {
                 write!(f, "{}", message)
             }
-            _ => todo!(),
+            ProgressPercent { message, .. } => write!(f, "{message}"),
+            FileStatus { path, status } => write!(f, "{} {}", status, path.display()),
+            Other(s) => write!(f, "{}", s),
+            Error(e) => write!(f, "{e}"),
         }
     }
 }
