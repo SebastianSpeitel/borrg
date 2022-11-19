@@ -157,22 +157,22 @@ impl Archive {
     }
 
     pub fn compression(&mut self, compression: Compression) -> &mut Self {
-        self.compression = Some(compression);
+        self.compression.replace(compression);
         self
     }
 
     pub fn pattern_file(&mut self, pattern_file: PathBuf) -> &mut Self {
-        self.pattern_file = Some(pattern_file);
+        self.pattern_file.replace(pattern_file);
         self
     }
 
     pub fn exclude_file(&mut self, exclude_file: PathBuf) -> &mut Self {
-        self.exclude_file = Some(exclude_file);
+        self.exclude_file.replace(exclude_file);
         self
     }
 
     pub fn comment(&mut self, comment: String) -> &mut Self {
-        self.comment = Some(comment);
+        self.comment.replace(comment);
         self
     }
 }
