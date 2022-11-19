@@ -1,13 +1,14 @@
 use crate::{backend, Borg};
+use std::{sync::mpsc, time::Duration};
 
 use super::*;
 
 #[derive(Args, Debug)]
 pub struct Args {
-    #[clap(short, long)]
+    #[arg(short, long)]
     progress: bool,
 
-    #[clap(short, long)]
+    #[arg(short, long)]
     dry_run: bool,
 }
 
