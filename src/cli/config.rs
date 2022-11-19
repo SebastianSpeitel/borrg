@@ -4,6 +4,89 @@ use log::{debug, warn};
 
 use crate::{Archive, Compression, Passphrase, Repo};
 
+#[derive(Debug)]
+pub enum ConfigError {
+    TypeError {
+        expected: Option<&'static str>,
+        found: Option<&'static str>,
+    },
+    ValueError,
+    MissingKey(&'static str),
+    ExclusiveKeys(&'static str, &'static str),
+    MissingTemplate(String),
+    Keyed {
+        key: String,
+        err: Box<ConfigError>,
+    },
+    IOError(std::io::Error),
+    ParseError(toml::de::Error),
+}
+
+impl ConfigError {
+    fn at_key<T: AsRef<str>>(self, key: T) -> ConfigError {
+        ConfigError::Keyed {
+            key: key.as_ref().to_string(),
+            err: Box::new(self),
+        }
+    }
+}
+
+fn at_key<T: AsRef<str>>(key: T) -> impl FnOnce(ConfigError) -> ConfigError {
+    move |err: ConfigError| ConfigError::Keyed {
+        key: key.as_ref().to_string(),
+        err: Box::new(err),
+    }
+}
+
+impl Display for ConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::TypeError {
+                expected: None,
+                found: None,
+            } => write!(f, "Invalid type"),
+            Self::TypeError {
+                expected: Some(expected),
+                found: Some(received),
+            } => write!(f, "Invalid type: expected {}, found {}", expected, received),
+            Self::TypeError {
+                expected: Some(expected),
+                found: None,
+            } => write!(f, "Invalid type: expected {}", expected),
+            Self::TypeError {
+                expected: None,
+                found: Some(received),
+            } => write!(f, "Invalid type: found {}", received),
+            Self::ValueError => write!(f, "Invalid value"),
+            Self::MissingKey(key) => write!(f, "Missing key \"{}\"", key),
+            Self::ExclusiveKeys(key, other_key) => {
+                write!(f, "{} and {} are exclusive", key, other_key)
+            }
+            Self::MissingTemplate(name) => write!(f, "Missing template \"{}\"", name),
+            Self::Keyed { err, key } => {
+                let mut cur = err.to_owned();
+                let mut path = vec![key.to_owned()];
+                while let ConfigError::Keyed { key, err } = cur.as_ref() {
+                    cur = err;
+                    path.push(key.to_owned());
+                }
+                write!(f, "{cur} at {}", path.join("."))
+            }
+            Self::IOError(err) => err.fmt(f),
+            Self::ParseError(err) => err.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for ConfigError {}
+
+impl std::process::Termination for ConfigError {
+    fn report(self) -> std::process::ExitCode {
+        eprintln!("{}", self);
+        std::process::ExitCode::FAILURE
+    }
+}
+
 #[derive(Clone, Debug)]
 enum RepoConfig {
     Split {
@@ -198,89 +281,6 @@ impl Default for BackupConfig {
             pattern_file: None,
             exclude_file: Some(PathBuf::from(".borgignore")),
         }
-    }
-}
-
-#[derive(Debug)]
-pub enum ConfigError {
-    TypeError {
-        expected: Option<&'static str>,
-        found: Option<&'static str>,
-    },
-    ValueError,
-    MissingKey(&'static str),
-    ExclusiveKeys(&'static str, &'static str),
-    MissingTemplate(String),
-    Keyed {
-        key: String,
-        err: Box<ConfigError>,
-    },
-    IOError(std::io::Error),
-    ParseError(toml::de::Error),
-}
-
-impl ConfigError {
-    fn at_key<T: AsRef<str>>(self, key: T) -> ConfigError {
-        ConfigError::Keyed {
-            key: key.as_ref().to_string(),
-            err: Box::new(self),
-        }
-    }
-}
-
-fn at_key<T: AsRef<str>>(key: T) -> impl FnOnce(ConfigError) -> ConfigError {
-    move |err: ConfigError| ConfigError::Keyed {
-        key: key.as_ref().to_string(),
-        err: Box::new(err),
-    }
-}
-
-impl Display for ConfigError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::TypeError {
-                expected: None,
-                found: None,
-            } => write!(f, "Invalid type"),
-            Self::TypeError {
-                expected: Some(expected),
-                found: Some(received),
-            } => write!(f, "Invalid type: expected {}, found {}", expected, received),
-            Self::TypeError {
-                expected: Some(expected),
-                found: None,
-            } => write!(f, "Invalid type: expected {}", expected),
-            Self::TypeError {
-                expected: None,
-                found: Some(received),
-            } => write!(f, "Invalid type: found {}", received),
-            Self::ValueError => write!(f, "Invalid value"),
-            Self::MissingKey(key) => write!(f, "Missing key \"{}\"", key),
-            Self::ExclusiveKeys(key, other_key) => {
-                write!(f, "{} and {} are exclusive", key, other_key)
-            }
-            Self::MissingTemplate(name) => write!(f, "Missing template \"{}\"", name),
-            Self::Keyed { err, key } => {
-                let mut cur = err.to_owned();
-                let mut path = vec![key.to_owned()];
-                while let ConfigError::Keyed { key, err } = cur.as_ref() {
-                    cur = err;
-                    path.push(key.to_owned());
-                }
-                write!(f, "{cur} at {}", path.join("."))
-            }
-            Self::IOError(err) => err.fmt(f),
-            Self::ParseError(err) => err.fmt(f),
-        }
-    }
-}
-
-impl std::error::Error for ConfigError {}
-
-impl std::process::Termination for ConfigError {
-    fn report(self) -> std::process::ExitCode {
-        eprintln!("{}", self);
-        std::process::ExitCode::FAILURE
     }
 }
 
