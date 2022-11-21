@@ -48,7 +48,7 @@ impl TryFrom<serde_json::Value> for Event {
         };
         let operation = || value.get("operation").and_then(|o| o.as_u64());
         let level = || {
-            value
+            if let Some(l) = value
                 .get("level")
                 .and_then(|l| l.as_str())
                 .and_then(|l| match l {
@@ -61,6 +61,28 @@ impl TryFrom<serde_json::Value> for Event {
                         None
                     }
                 })
+            {
+                return Some(l);
+            }
+
+            if let Some(l) = value
+                .get("levelname")
+                .and_then(|l| l.as_str())
+                .and_then(|l| match l {
+                    "DEBUG" => Some(Level::Debug),
+                    "INFO" => Some(Level::Info),
+                    "WARNING" => Some(Level::Warn),
+                    "ERROR" => Some(Level::Error),
+                    _ => {
+                        warn!("unknown log level: {}", l);
+                        None
+                    }
+                })
+            {
+                return Some(l);
+            }
+
+            None
         };
         let name = || {
             value
