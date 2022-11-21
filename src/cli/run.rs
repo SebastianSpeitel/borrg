@@ -1,7 +1,6 @@
+use super::*;
 use crate::{backend, Borg};
 use std::{sync::mpsc, time::Duration};
-
-use super::*;
 
 #[derive(Args, Debug)]
 pub struct Args {
