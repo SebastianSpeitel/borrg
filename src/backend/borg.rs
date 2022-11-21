@@ -180,9 +180,12 @@ impl<R: Read> Iterator for Events<R> {
         debug!("{:#?}", json);
 
         match Event::try_from(json) {
-            Ok(event) => Some(event),
+            Ok(event) => {
+                debug!("{:#?}", event);
+                Some(event)
+            }
             Err(e) => {
-                warn!("Invalid borg log event: {line:?} ({e})");
+                warn!("Unknown borg log event: {line:?} ({e})");
                 Some(Event::Other(line))
             }
         }
