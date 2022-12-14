@@ -373,11 +373,8 @@ impl Default for BorgCommand {
 
         let mut cmd = Self(Command::new(borg_path));
 
-        match log::max_level().to_level() {
-            Some(level) => {
-                cmd.log_level(level);
-            }
-            None => {}
+        if let Some(level) = log::max_level().to_level() {
+            cmd.log_level(level);
         };
 
         cmd

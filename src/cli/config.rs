@@ -631,7 +631,7 @@ impl Config {
     where
         P: AsRef<std::path::Path>,
     {
-        let value = toml::from_str(&std::fs::read_to_string(&path).map_err(ConfigError::IOError)?)
+        let value = toml::from_str(&std::fs::read_to_string(path).map_err(ConfigError::IOError)?)
             .map_err(ConfigError::ParseError)?;
 
         let backups = ConfigProperty::parse(&value)?;
