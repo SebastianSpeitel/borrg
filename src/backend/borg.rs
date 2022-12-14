@@ -138,6 +138,10 @@ impl TryFrom<serde_json::Value> for Event {
                 }),
                 total: total().unwrap_or_default(),
             },
+            "question_prompt" => Self::Prompt {
+                prompt: message().unwrap(),
+                msgid: msgid().unwrap(),
+            },
             _ => return Err(format!("Unknown event type: {}", _type).into()),
         };
         Ok(event)

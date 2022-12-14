@@ -220,6 +220,10 @@ pub enum Event {
         status: String,
         path: PathBuf,
     },
+    Prompt {
+        prompt: String,
+        msgid: String,
+    },
     Other(String),
     Error(Error),
 }
@@ -261,6 +265,7 @@ impl Display for Event {
             }
             ProgressPercent { message, .. } => write!(f, "{message}"),
             FileStatus { path, status } => write!(f, "{} {}", status, path.display()),
+            Prompt { prompt, .. } => write!(f, "{}", prompt),
             Other(s) => write!(f, "{}", s),
             Error(e) => write!(f, "{e}"),
         }
