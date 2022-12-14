@@ -4,7 +4,7 @@ use std::{
     io::{BufRead, BufReader, Lines, Read},
     ops::{Deref, DerefMut},
     path::PathBuf,
-    process::{ChildStderr, Command, Stdio},
+    process::{Command, Stdio},
     time::{Duration, SystemTime},
 };
 
