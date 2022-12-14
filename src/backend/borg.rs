@@ -398,7 +398,7 @@ impl DerefMut for BorgCommand {
 pub struct BorgWrapper {}
 
 impl Backend for BorgWrapper {
-    type Events = Events<ChildStderr>;
+    type Update = Event;
 
     #[allow(unused_variables)]
     fn init_repository(
@@ -410,7 +410,12 @@ impl Backend for BorgWrapper {
         todo!()
     }
 
-    fn create_archive(borg: &Borg, repository: &Repo, archive: &Archive) -> Result<Self::Events> {
+    fn create_archive(
+        borg: &Borg,
+        repository: &Repo,
+        archive: &Archive,
+        on_update: impl Fn(Event),
+    ) -> Result<()> {
         if archive.paths.is_empty() {
             return Err("No paths specified".into());
         }
@@ -492,7 +497,11 @@ impl Backend for BorgWrapper {
             None => return Err("No stderr".into()),
         };
 
-        Ok(stderr.into())
+        for event in Events::from(stderr) {
+            on_update(event);
+        }
+
+        Ok(())
     }
 
     fn repo_info(repository: &Repo) -> Result<RepoInfo> {

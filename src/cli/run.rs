@@ -50,28 +50,14 @@ pub fn run(mut borg: Borg, config: Config, args: Args) {
 
         let tx = tx.clone();
         let handle = std::thread::spawn(move || {
-            let events = borg.create_archive::<backend::borg::BorgWrapper>(&backup.0, &backup.1);
+            let res =
+                borg.create_archive::<backend::borg::BorgWrapper>(&backup.0, &backup.1, |e| {
+                    tx.send((idx, e)).unwrap();
+                });
 
-            let events = match events {
-                Ok(e) => e,
-                Err(e) => {
-                    log::error!("{}", e);
-                    return;
-                }
-            };
-
-            for event in events {
-                tx.send((idx, event)).unwrap();
+            if let Err(e) = res {
+                tx.send((idx, crate::Event::Error(e))).unwrap();
             }
-            // .unwrap_or_else(|e| {
-            //     tx.send((
-            //         idx,
-            //         borg::Event::Error {
-            //             message: e.to_string(),
-            //         },
-            //     ))
-            //     .unwrap()
-            // });
         });
 
         handles.push((handle, pb, prefix));

@@ -295,8 +295,9 @@ impl Repo {
         &self,
         borg: &Borg,
         archive: &Archive,
-    ) -> Result<impl Iterator<Item = Event>> {
-        B::create_archive(borg, self, archive)
+        on_update: impl Fn(B::Update),
+    ) -> Result<()> {
+        B::create_archive(borg, self, archive, on_update)
     }
 
     pub fn info<B: Backend>(&self) -> Result<RepoInfo> {
@@ -377,13 +378,14 @@ impl Borg {
         &self,
         repository: &Repo,
         archive: &Archive,
-    ) -> Result<B::Events> {
-        B::create_archive(self, repository, archive)
+        on_update: impl Fn(B::Update),
+    ) -> Result<()> {
+        B::create_archive(self, repository, archive, on_update)
     }
 }
 
 pub trait Backend {
-    type Events: Iterator<Item = Event>;
+    type Update: Display;
 
     /// Initialize an empty repository
     fn init_repository(
@@ -394,7 +396,12 @@ pub trait Backend {
     ) -> Result<Repo>;
 
     /// Create new archive
-    fn create_archive(borg: &Borg, repository: &Repo, archive: &Archive) -> Result<Self::Events>;
+    fn create_archive(
+        borg: &Borg,
+        repository: &Repo,
+        archive: &Archive,
+        on_update: impl Fn(Self::Update),
+    ) -> Result<()>;
 
     fn repo_info(repository: &Repo) -> Result<RepoInfo>;
 }
