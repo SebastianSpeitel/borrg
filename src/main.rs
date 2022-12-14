@@ -24,6 +24,8 @@ pub struct Cli {
 enum Commands {
     /// Run all configured backups
     Run(borrg::cli::run::Args),
+    /// Initialize a new borg repository
+    Init(borrg::cli::init::Args),
     /// List backups
     List,
     /// Get info about a backup
@@ -61,6 +63,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Commands::Run(args) => {
             borrg::cli::run::run(borg, config, args);
+        }
+        Commands::Init(args) => {
+            borrg::cli::init::init(borg, config, args);
         }
         _ => unimplemented!(),
     }

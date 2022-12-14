@@ -400,14 +400,65 @@ pub struct BorgWrapper {}
 impl Backend for BorgWrapper {
     type Update = Event;
 
-    #[allow(unused_variables)]
     fn init_repository(
         borg: &Borg,
-        repository: &Repo,
+        repository: &mut Repo,
         encryption: Encryption,
         append_only: bool,
-    ) -> Result<Repo> {
-        todo!()
+        storage_quota: Option<usize>,
+        make_parent_dirs: bool,
+        on_update: impl Fn(Event),
+    ) -> Result<()> {
+        let mut cmd = BorgCommand::default();
+
+        cmd.arg("init");
+
+        cmd.arg("--log-json");
+
+        cmd.rate_limit(&borg.rate_limit);
+
+        if append_only {
+            cmd.arg("--append-only");
+        }
+
+        if make_parent_dirs {
+            cmd.arg("--make-parent-dirs");
+        }
+
+        if let Some(quota) = storage_quota {
+            cmd.arg("--storage-quota");
+            cmd.arg(quota.to_string());
+        }
+
+        cmd.arg("--encryption");
+        cmd.arg(encryption.to_string());
+
+        cmd.arg(repository.to_string());
+
+        if let Some(ref pass) = repository.passphrase {
+            cmd.passphrase(pass);
+        }
+
+        // Don't let borg ask if the passphrase should be displayed
+        cmd.env("BORG_DISPLAY_PASSPHRASE", "no");
+
+        log_command(&cmd);
+
+        cmd.stderr(Stdio::piped());
+        let mut child = cmd.spawn()?;
+
+        let stderr = child.stderr.take();
+
+        let stderr = match stderr {
+            Some(stderr) => stderr,
+            None => return Err("No stderr".into()),
+        };
+
+        for event in Events::from(stderr) {
+            on_update(event);
+        }
+
+        Ok(())
     }
 
     fn create_archive(

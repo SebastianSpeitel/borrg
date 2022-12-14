@@ -14,7 +14,7 @@ pub enum Passphrase {
     FileDescriptor(i32),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, clap::ValueEnum)]
 #[non_exhaustive]
 pub enum Encryption {
     None,
@@ -24,6 +24,20 @@ pub enum Encryption {
     KeyFileBlake2,
     Authenticated,
     AuthenticatedBlake2,
+}
+
+impl Display for Encryption {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Encryption::None => write!(f, "none"),
+            Encryption::RepoKey => write!(f, "repokey"),
+            Encryption::RepoKeyBlake2 => write!(f, "repokey-blake2"),
+            Encryption::KeyFile => write!(f, "keyfile"),
+            Encryption::KeyFileBlake2 => write!(f, "keyfile-blake2"),
+            Encryption::Authenticated => write!(f, "authenticated"),
+            Encryption::AuthenticatedBlake2 => write!(f, "authenticated-blake2"),
+        }
+    }
 }
 
 #[non_exhaustive]
@@ -272,7 +286,7 @@ impl Display for Event {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Repo {
     pub(crate) location: String,
     pub(crate) passphrase: Option<Passphrase>,
@@ -302,6 +316,12 @@ impl Repo {
 
     pub fn info<B: Backend>(&self) -> Result<RepoInfo> {
         B::repo_info(self)
+    }
+}
+
+impl From<String> for Repo {
+    fn from(s: String) -> Self {
+        Self::new(s)
     }
 }
 
@@ -365,13 +385,24 @@ impl Borg {
         self
     }
 
-    pub fn init<B: Backend>(
+    pub fn init_repository<B: Backend>(
         &self,
-        repository: &Repo,
+        repository: &mut Repo,
         encryption: Encryption,
         append_only: bool,
-    ) -> Result<Repo> {
-        B::init_repository(self, repository, encryption, append_only)
+        storage_quota: Option<usize>,
+        make_parent_dirs: bool,
+        on_update: impl Fn(B::Update),
+    ) -> Result<()> {
+        B::init_repository(
+            self,
+            repository,
+            encryption,
+            append_only,
+            storage_quota,
+            make_parent_dirs,
+            on_update,
+        )
     }
 
     pub fn create_archive<B: Backend>(
@@ -390,10 +421,13 @@ pub trait Backend {
     /// Initialize an empty repository
     fn init_repository(
         borg: &Borg,
-        repository: &Repo,
+        repository: &mut Repo,
         encryption: Encryption,
         append_only: bool,
-    ) -> Result<Repo>;
+        storage_quota: Option<usize>,
+        make_parent_dirs: bool,
+        on_update: impl Fn(Self::Update),
+    ) -> Result<()>;
 
     /// Create new archive
     fn create_archive(
