@@ -238,6 +238,11 @@ pub enum Event {
         prompt: String,
         msgid: String,
     },
+    Answer {
+        answer: String,
+        env_var: Option<String>,
+        msgid: String,
+    },
     Other(String),
     Error(Error),
 }
@@ -280,6 +285,7 @@ impl Display for Event {
             ProgressPercent { message, .. } => write!(f, "{message}"),
             FileStatus { path, status } => write!(f, "{} {}", status, path.display()),
             Prompt { prompt, .. } => write!(f, "{}", prompt),
+            Answer { answer, .. } => write!(f, "{}", answer),
             Other(s) => write!(f, "{}", s),
             Error(e) => write!(f, "{e}"),
         }

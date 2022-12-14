@@ -98,6 +98,12 @@ impl TryFrom<serde_json::Value> for Event {
         };
         let current = || value.get("current").and_then(|c| c.as_u64());
         let total = || value.get("total").and_then(|t| t.as_u64());
+        let env_var = || {
+            value
+                .get("env_var")
+                .and_then(|e| e.as_str())
+                .map(|e| e.to_owned())
+        };
 
         let event = match _type.as_str() {
             "archive_progress" => Self::ArchiveProgress {
@@ -140,6 +146,11 @@ impl TryFrom<serde_json::Value> for Event {
             },
             "question_prompt" => Self::Prompt {
                 prompt: message().unwrap(),
+                msgid: msgid().unwrap(),
+            },
+            "question_env_answer" => Self::Answer {
+                answer: message().unwrap(),
+                env_var: env_var(),
                 msgid: msgid().unwrap(),
             },
             _ => return Err(format!("Unknown event type: {}", _type).into()),
