@@ -2,6 +2,8 @@ use std::fmt::Display;
 use std::num::NonZeroU8;
 use std::path::PathBuf;
 use std::time::SystemTime;
+mod repo;
+pub use repo::Repo;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Result<T> = std::result::Result<T, Error>;
@@ -292,20 +294,7 @@ impl Display for Event {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Repo {
-    pub(crate) location: String,
-    pub(crate) passphrase: Option<Passphrase>,
-}
-
 impl Repo {
-    pub fn new(location: String) -> Self {
-        Self {
-            location,
-            passphrase: None,
-        }
-    }
-
     pub fn passphrase(&mut self, passphrase: Passphrase) -> &mut Self {
         self.passphrase = Some(passphrase);
         self
@@ -322,18 +311,6 @@ impl Repo {
 
     pub fn info<B: Backend>(&self) -> Result<RepoInfo> {
         B::repo_info(self)
-    }
-}
-
-impl From<String> for Repo {
-    fn from(s: String) -> Self {
-        Self::new(s)
-    }
-}
-
-impl Display for Repo {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.location)
     }
 }
 

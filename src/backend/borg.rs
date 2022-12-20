@@ -544,7 +544,7 @@ impl Backend for BorgWrapper {
             cmd.arg(exclude_file);
         }
 
-        cmd.arg(format!("{}::{}", repository.location, archive.name));
+        cmd.arg(format!("{}::{}", repository, archive.name));
         cmd.args(archive.paths.iter().map(resolve_path));
 
         log_command(&cmd);
@@ -576,7 +576,7 @@ impl Backend for BorgWrapper {
         }
 
         cmd.arg("--json");
-        cmd.arg(&repository.location);
+        cmd.arg(&repository.to_string());
 
         log_command(&cmd);
 

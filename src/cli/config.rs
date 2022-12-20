@@ -20,6 +20,7 @@ pub enum ConfigError {
     },
     IOError(std::io::Error),
     ParseError(toml::de::Error),
+    Other(&'static str),
 }
 
 impl ConfigError {
@@ -74,6 +75,7 @@ impl Display for ConfigError {
             }
             Self::IOError(err) => err.fmt(f),
             Self::ParseError(err) => err.fmt(f),
+            Self::Other(msg) => write!(f, "{}", msg),
         }
     }
 }
@@ -393,18 +395,17 @@ impl ConfigProperty for Compression {
 impl TryFrom<&BackupConfig> for Repo {
     type Error = ConfigError;
     fn try_from(config: &BackupConfig) -> Result<Self, Self::Error> {
-        let location = config
+        let repository = config
             .repo
             .as_ref()
             .ok_or(ConfigError::MissingKey("repo"))?
             .to_string();
 
-        let passphrase = config.passphrase.to_owned();
+        let mut repo = repository.parse::<Repo>().map_err(ConfigError::Other)?;
 
-        Ok(Self {
-            location,
-            passphrase,
-        })
+        repo.passphrase = config.passphrase.to_owned();
+
+        Ok(repo)
     }
 }
 
@@ -670,7 +671,7 @@ mod tests {
         let results = result.unwrap();
         assert_eq!(results.len(), 1);
         let (repo, archive) = results.first().unwrap();
-        assert_eq!(repo.location, ".");
+        assert_eq!(repo.to_string(), ".");
         assert_eq!(repo.passphrase, None);
         assert_eq!(archive.paths, vec![PathBuf::from("~")]);
         assert_eq!(archive.compression, None);

@@ -28,11 +28,7 @@ pub fn init(borg: Borg, config: Config, args: Args) {
     let mut repo = args.repository;
 
     // Search matching backup in config
-    let backup = config
-        .backups
-        .iter()
-        .map(|(b, _)| b)
-        .find(|b| b.location == repo.location);
+    let backup = config.backups.iter().map(|(r, _)| r).find(|r| r == &&repo);
 
     if let Some(backup) = backup {
         repo.passphrase = backup.passphrase.clone();
