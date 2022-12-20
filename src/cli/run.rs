@@ -37,7 +37,7 @@ pub fn run(mut borg: Borg, config: Config, args: Args) {
             .template(&template)
             .unwrap()
             // .tick_chars("◜◠◝◞◡◟");
-            .tick_strings(&["▱▱▱▱", "▰▱▱▱", "▰▰▱▱", "▱▰▰▱", "▱▱▰▰", "▱▱▱▰"]);
+            .tick_strings(&["▱▱▱▱", "▰▱▱▱", "▰▰▱▱", "▱▰▰▱", "▱▱▰▰", "▱▱▱▰", "▰▰▰▰"]);
         pb.set_style(sty);
 
         pb.enable_steady_tick(Duration::from_secs(1));
