@@ -80,19 +80,21 @@ mod tests {
 
     #[test]
     fn test_init() {
+        std::fs::create_dir_all("./tmp").ok();
+
         let args = super::Args {
             encryption: Encryption::None,
             append_only: false,
             storage_quota: None,
             make_parent_dirs: false,
-            repository: "/tmp/test-repo".parse().unwrap(),
+            repository: "./tmp/test-repo".parse().unwrap(),
         };
 
-        let config_path = std::path::PathBuf::from("/tmp/borrg.toml");
+        let config_path = std::path::PathBuf::from("./tmp/borrg.toml");
 
         // Cleanup
         std::fs::remove_file(&config_path).ok();
-        std::fs::remove_dir_all("/tmp/test-repo").ok();
+        std::fs::remove_dir_all("./tmp/test-repo").ok();
 
         std::fs::write(&config_path, "").unwrap();
 
@@ -103,5 +105,10 @@ mod tests {
 
         let config_after = Config::load(&config_path).unwrap();
         assert_eq!(config_after.backups.len(), 1);
+
+        // Cleanup
+        std::fs::remove_file(&config_path).ok();
+        std::fs::remove_dir_all("./tmp").ok();
+
     }
 }
