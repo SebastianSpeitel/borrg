@@ -66,9 +66,9 @@ fn append_backup_config(
 
     let mut file = OpenOptions::new().append(true).open(path)?;
 
-    file.write(b"\n[[backup]]\nrepository = \"")?;
-    file.write(repo.to_string().as_bytes())?;
-    file.write(b"\"\n")?;
+    file.write_all(b"\n[[backup]]\nrepository = \"")?;
+    file.write_all(repo.to_string().as_bytes())?;
+    file.write_all(b"\"\n")?;
 
     Ok(())
 }
