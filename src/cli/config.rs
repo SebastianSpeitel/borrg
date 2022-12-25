@@ -624,6 +624,7 @@ impl ConfigProperty for Vec<(Repo, Archive)> {
 
 #[derive(Debug)]
 pub struct Config {
+    pub(crate) source: PathBuf,
     pub backups: Vec<(Repo, Archive)>,
 }
 
@@ -637,7 +638,10 @@ impl Config {
 
         let backups = ConfigProperty::parse(&value)?;
 
-        Ok(Self { backups })
+        Ok(Self {
+            source: path.as_ref().into(),
+            backups,
+        })
     }
 }
 

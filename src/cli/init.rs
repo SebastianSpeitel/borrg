@@ -30,8 +30,10 @@ pub fn init(borg: Borg, config: Config, args: Args) {
     // Search matching backup in config
     let backup = config.backups.iter().map(|(r, _)| r).find(|r| r == &&repo);
 
+    let mut exists_already = false;
     if let Some(backup) = backup {
-        repo.passphrase = backup.passphrase.clone();
+        repo.passphrase = backup.passphrase.to_owned();
+        exists_already = true;
     }
 
     if let Err(e) = borg.init_repository::<backend::borg::BorgWrapper>(
@@ -46,5 +48,79 @@ pub fn init(borg: Borg, config: Config, args: Args) {
     ) {
         eprintln!("Failed to initialize repository: {}", e);
         std::process::exit(1);
+    }
+
+    if !exists_already {
+        if let Err(e) = append_backup_config(&config.source, &repo) {
+            eprintln!("Failed to append backup to config: {}", e);
+        }
+    }
+}
+
+fn append_backup_config(
+    path: &std::path::PathBuf,
+    repo: &crate::Repo,
+) -> Result<(), std::io::Error> {
+    use std::fs::OpenOptions;
+    use std::io::Write;
+
+    let mut file = OpenOptions::new().append(true).open(path)?;
+
+    file.write_all(b"\n[[backup]]\nrepository = \"")?;
+    file.write_all(repo.to_string().as_bytes())?;
+    file.write_all(b"\"\n")?;
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    fn borg_available() -> bool {
+        std::process::Command::new("which")
+            .arg("borg")
+            .output()
+            .unwrap()
+            .status
+            .success()
+    }
+
+    #[test]
+    fn test_init() {
+        if !borg_available() {
+            return;
+        }
+
+        std::fs::create_dir_all("./tmp").ok();
+
+        let args = super::Args {
+            encryption: Encryption::None,
+            append_only: false,
+            storage_quota: None,
+            make_parent_dirs: false,
+            repository: "./tmp/test-repo".parse().unwrap(),
+        };
+
+        let config_path = std::path::PathBuf::from("./tmp/borrg.toml");
+
+        // Cleanup
+        std::fs::remove_file(&config_path).ok();
+        std::fs::remove_dir_all("./tmp/test-repo").ok();
+
+        std::fs::write(&config_path, "").unwrap();
+
+        let borg = Borg::default();
+        let config = Config::load(&config_path).unwrap();
+
+        init(borg, config, args);
+
+        let config_after = Config::load(&config_path).unwrap();
+        assert_eq!(config_after.backups.len(), 1);
+
+        // Cleanup
+        std::fs::remove_file(&config_path).ok();
+        std::fs::remove_dir_all("./tmp").ok();
     }
 }
