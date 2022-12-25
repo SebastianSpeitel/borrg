@@ -32,7 +32,7 @@ pub fn init(borg: Borg, config: Config, args: Args) {
 
     let mut exists_already = false;
     if let Some(backup) = backup {
-        repo.passphrase = backup.passphrase.clone();
+        repo.passphrase = backup.passphrase.to_owned();
         exists_already = true;
     }
 
@@ -78,8 +78,21 @@ mod tests {
 
     use super::*;
 
+    fn borg_available() -> bool {
+        std::process::Command::new("which")
+            .arg("borg")
+            .output()
+            .unwrap()
+            .status
+            .success()
+    }
+
     #[test]
     fn test_init() {
+        if !borg_available() {
+            return;
+        }
+
         std::fs::create_dir_all("./tmp").ok();
 
         let args = super::Args {
@@ -109,6 +122,5 @@ mod tests {
         // Cleanup
         std::fs::remove_file(&config_path).ok();
         std::fs::remove_dir_all("./tmp").ok();
-
     }
 }
