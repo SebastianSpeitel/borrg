@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = match config {
         Ok(config) => config,
         Err(e) => {
-            eprintln!("{}", e);
+            eprintln!("Failed to load config ({}): {}", config_path.display(), e);
             std::process::exit(1);
         }
     };
