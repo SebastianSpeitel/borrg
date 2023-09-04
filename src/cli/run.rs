@@ -67,9 +67,9 @@ pub fn run(mut borg: Borg, config: Config, args: Args) {
 
     for (idx, event) in rx {
         let (_, pb, prefix) = &mut handles[idx];
-        use crate::borrg::Event::*;
+        use crate::borrg::Event as E;
         match event {
-            ArchiveProgress {
+            E::ArchiveProgress {
                 nfiles,
                 original_size,
                 compressed_size,
@@ -77,7 +77,7 @@ pub fn run(mut borg: Borg, config: Config, args: Args) {
                 path,
                 ..
             } => {
-                let mut prefix = vec![];
+                let mut prefix = Vec::with_capacity(4);
                 prefix.push(format!("O {}", indicatif::HumanBytes(original_size)));
 
                 prefix.push(format!("C {}", indicatif::HumanBytes(compressed_size)));
@@ -91,19 +91,12 @@ pub fn run(mut borg: Borg, config: Config, args: Args) {
 
                 pb.set_message(format!("{}", path.display()));
             }
-            ProgressMessage {
-                message: Some(message),
-                ..
-            } => {
-                pb.println(format!("{}{}", prefix, message));
+            E::Error(e) => {
+                pb.println(format!("{prefix}Error: {e}"));
             }
-            LogMessage { message, .. } => {
-                pb.println(format!("{}{}", prefix, message));
+            ev => {
+                pb.println(format!("{prefix}{ev}"));
             }
-            Error(e) => {
-                pb.println(format!("{}Error: {}", prefix, e));
-            }
-            _ => {}
         }
     }
 
