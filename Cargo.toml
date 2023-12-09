@@ -2,6 +2,8 @@
 name = "borrg"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+license-file = "LICENSE"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
