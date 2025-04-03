@@ -9,7 +9,7 @@ pub(super) enum InvalidByteSize {
 }
 
 pub(super) fn parse_byte_size(size: &str) -> Result<u64, InvalidByteSize> {
-    let (num, suffix) = size.chars().partition::<String, _>(|c| c.is_ascii_digit());
+    let (num, suffix) = size.chars().partition::<String, _>(char::is_ascii_digit);
 
     let num: u64 = num.parse().map_err(|_| InvalidByteSize::Size(num))?;
 

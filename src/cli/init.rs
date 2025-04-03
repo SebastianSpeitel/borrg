@@ -32,7 +32,7 @@ pub fn init(borg: Borg, config: Config, args: Args) {
 
     let mut exists_already = false;
     if let Some(backup) = backup {
-        repo.passphrase = backup.passphrase.to_owned();
+        repo.passphrase = backup.passphrase.clone();
         exists_already = true;
     }
 
@@ -43,16 +43,16 @@ pub fn init(borg: Borg, config: Config, args: Args) {
         args.storage_quota,
         args.make_parent_dirs,
         |u| {
-            println!("{}", u);
+            println!("{u}");
         },
     ) {
-        eprintln!("Failed to initialize repository: {}", e);
+        eprintln!("Failed to initialize repository: {e}");
         std::process::exit(1);
     }
 
     if !exists_already {
         if let Err(e) = append_backup_config(&config.source, &repo) {
-            eprintln!("Failed to append backup to config: {}", e);
+            eprintln!("Failed to append backup to config: {e}");
         }
     }
 }

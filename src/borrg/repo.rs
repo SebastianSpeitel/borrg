@@ -59,7 +59,7 @@ impl FromStr for Repo {
     type Err = &'static str;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Some(path) = s.strip_prefix("file://") {
-            return Ok(Repo {
+            return Ok(Self {
                 remote: None,
                 path: path.into(),
                 passphrase: None,
@@ -72,13 +72,13 @@ impl FromStr for Repo {
                 .ok_or("Invalid repository specifier (No \"/\" after \"ssh://\")")?;
             let remote = remote.parse()?;
             if !path.starts_with('.') && !path.starts_with('~') {
-                return Ok(Repo {
+                return Ok(Self {
                     remote: Some(remote),
                     path: PathBuf::from("/").join(path),
                     passphrase: None,
                 });
             }
-            return Ok(Repo {
+            return Ok(Self {
                 remote: Some(remote),
                 path: path.into(),
                 passphrase: None,
@@ -92,14 +92,14 @@ impl FromStr for Repo {
                 Note: borrg will still support the old format by converting it internally."
             );
             let remote = remote.parse()?;
-            return Ok(Repo {
+            return Ok(Self {
                 remote: Some(remote),
                 path: path.into(),
                 passphrase: None,
             });
         }
 
-        Ok(Repo {
+        Ok(Self {
             remote: None,
             path: s.into(),
             passphrase: None,
@@ -151,11 +151,14 @@ impl FromStr for Remote {
             rest = h;
         }
         if let Some((h, p)) = rest.split_once(':') {
-            port.replace(p.parse().map_err(|_| "Invalid remote: Failed to parse port")?);
+            port.replace(
+                p.parse()
+                    .map_err(|_| "Invalid remote: Failed to parse port")?,
+            );
             rest = h;
         }
 
-        Ok(Remote {
+        Ok(Self {
             user,
             host: rest.to_string(),
             port,
@@ -166,11 +169,11 @@ impl FromStr for Remote {
 impl Display for Remote {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(user) = &self.user {
-            write!(f, "{}@", user)?;
+            write!(f, "{user}@")?;
         }
         write!(f, "{}", self.host)?;
         if let Some(port) = &self.port {
-            write!(f, ":{}", port)?;
+            write!(f, ":{port}")?;
         }
         Ok(())
     }

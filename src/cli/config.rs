@@ -24,8 +24,8 @@ pub enum ConfigError {
 }
 
 impl ConfigError {
-    fn at_key<T: AsRef<str>>(self, key: T) -> ConfigError {
-        ConfigError::Keyed {
+    fn at_key<T: AsRef<str>>(self, key: T) -> Self {
+        Self::Keyed {
             key: key.as_ref().to_string(),
             err: Box::new(self),
         }
@@ -49,25 +49,25 @@ impl Display for ConfigError {
             Self::TypeError {
                 expected: Some(expected),
                 found: Some(received),
-            } => write!(f, "Invalid type: expected {}, found {}", expected, received),
+            } => write!(f, "Invalid type: expected {expected}, found {received}"),
             Self::TypeError {
                 expected: Some(expected),
                 found: None,
-            } => write!(f, "Invalid type: expected {}", expected),
+            } => write!(f, "Invalid type: expected {expected}"),
             Self::TypeError {
                 expected: None,
                 found: Some(received),
-            } => write!(f, "Invalid type: found {}", received),
+            } => write!(f, "Invalid type: found {received}"),
             Self::ValueError => write!(f, "Invalid value"),
-            Self::MissingKey(key) => write!(f, "Missing key \"{}\"", key),
+            Self::MissingKey(key) => write!(f, "Missing key \"{key}\""),
             Self::ExclusiveKeys(key, other_key) => {
-                write!(f, "{} and {} are exclusive", key, other_key)
+                write!(f, "{key} and {other_key} are exclusive")
             }
-            Self::MissingTemplate(name) => write!(f, "Missing template \"{}\"", name),
+            Self::MissingTemplate(name) => write!(f, "Missing template \"{name}\""),
             Self::Keyed { err, key } => {
                 let mut cur = err.to_owned();
                 let mut path = vec![key.to_owned()];
-                while let ConfigError::Keyed { key, err } = cur.as_ref() {
+                while let Self::Keyed { key, err } = cur.as_ref() {
                     cur = err;
                     path.push(key.to_owned());
                 }
@@ -75,7 +75,7 @@ impl Display for ConfigError {
             }
             Self::IOError(err) => err.fmt(f),
             Self::ParseError(err) => err.fmt(f),
-            Self::Other(msg) => write!(f, "{}", msg),
+            Self::Other(msg) => write!(f, "{msg}"),
         }
     }
 }
@@ -84,7 +84,7 @@ impl std::error::Error for ConfigError {}
 
 impl std::process::Termination for ConfigError {
     fn report(self) -> std::process::ExitCode {
-        eprintln!("{}", self);
+        eprintln!("{self}");
         std::process::ExitCode::FAILURE
     }
 }
@@ -100,13 +100,13 @@ enum RepoConfig {
 }
 
 impl RepoConfig {
-    pub fn inherit(&mut self, other: &RepoConfig) {
+    pub fn inherit(&mut self, other: &Self) {
         use RepoConfig::*;
         // inherit user
         if let Split { user, .. } = self {
             if user.is_none() {
                 if let Split { user: u, .. } = other {
-                    *user = u.clone();
+                    user.clone_from(u);
                 }
             }
         }
@@ -114,7 +114,7 @@ impl RepoConfig {
         if let Split { host, .. } = self {
             if host.is_none() {
                 if let Split { host: h, .. } = other {
-                    *host = h.clone();
+                    host.clone_from(h);
                 }
             }
         }
@@ -122,7 +122,7 @@ impl RepoConfig {
         if let Split { path, .. } = self {
             if path.is_none() {
                 if let Split { path: p, .. } = other {
-                    *path = p.clone();
+                    path.clone_from(p);
                 }
             }
         }
@@ -132,27 +132,27 @@ impl RepoConfig {
 impl Display for RepoConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RepoConfig::Split {
+            Self::Split {
                 user: None,
                 host: Some(h),
                 path: None,
             } => write!(f, "{h}"),
-            RepoConfig::Split {
+            Self::Split {
                 user: None,
                 host: None,
                 path: Some(p),
             } => write!(f, "{}", p.display()),
-            RepoConfig::Split {
+            Self::Split {
                 user: None,
                 host: Some(h),
                 path: Some(p),
             } => write!(f, "{h}:{}", p.display()),
-            RepoConfig::Split {
+            Self::Split {
                 user: Some(u),
                 host: Some(h),
                 path: Some(p),
             } => write!(f, "{u}@{h}:{}", p.display()),
-            RepoConfig::Combined(combined) => write!(f, "{}", combined),
+            Self::Combined(combined) => write!(f, "{combined}"),
             _ => {
                 warn!("RepoConfig::fmt: Unhandled case");
                 write!(f, "::")
@@ -193,10 +193,10 @@ struct BackupConfig {
 impl BackupConfig {
     pub fn set_defaults(&mut self) {
         self.template = None;
-        self.resolve_with(&Default::default());
+        self.resolve_with(&Self::default());
     }
 
-    pub fn resolve(mut self, templates: &[(String, BackupConfig)]) -> Result<Self, ConfigError> {
+    pub fn resolve(mut self, templates: &[(String, Self)]) -> Result<Self, ConfigError> {
         while let Some(t) = self.template.take() {
             let template =
                 templates.iter().find_map(
@@ -220,27 +220,27 @@ impl BackupConfig {
 
     pub fn resolve_with(&mut self, template: &Self) {
         // Inherit template
-        self.template = template.template.to_owned();
+        template.template.clone_into(&mut self.template);
 
         // Merge repo
         match self.repo {
-            None => self.repo = template.repo.clone(),
+            None => self.repo.clone_from(&template.repo),
             Some(RepoConfig::Combined(_)) => {}
             Some(ref mut r) => {
                 if let Some(t) = &template.repo {
-                    r.inherit(t)
+                    r.inherit(t);
                 }
             }
         };
 
         // Inherit passphrase
         if self.passphrase.is_none() {
-            self.passphrase = template.passphrase.to_owned();
+            template.passphrase.clone_into(&mut self.passphrase);
         }
 
         // Inherit path if empty otherwise replace "..." with paths from template
         if self.paths.is_empty() {
-            self.paths = template.paths.clone();
+            self.paths.clone_from(&template.paths);
         } else {
             self.paths = self
                 .paths
@@ -257,24 +257,24 @@ impl BackupConfig {
 
         // Inherit compression
         if self.compression.is_none() {
-            self.compression = template.compression.to_owned();
+            template.compression.clone_into(&mut self.compression);
         }
 
         // Inherit pattern file
         if self.pattern_file.is_none() {
-            self.pattern_file = template.pattern_file.to_owned();
+            template.pattern_file.clone_into(&mut self.pattern_file);
         }
 
         // Inherit exclude file
         if self.exclude_file.is_none() {
-            self.exclude_file = template.exclude_file.to_owned();
+            template.exclude_file.clone_into(&mut self.exclude_file);
         }
     }
 }
 
 impl Default for BackupConfig {
     fn default() -> Self {
-        BackupConfig {
+        Self {
             template: None,
             repo: None,
             passphrase: None,
@@ -291,22 +291,22 @@ impl ConfigProperty for Compression {
         use toml::Value::*;
         let compression = match value {
             String(s) => match s.to_lowercase().as_str() {
-                "none" => Compression::None { obfuscation: None },
-                "lz4" => Compression::Lz4 {
+                "none" => Self::None { obfuscation: None },
+                "lz4" => Self::Lz4 {
                     auto: false,
                     obfuscation: None,
                 },
-                "lzma" => Compression::Lzma {
+                "lzma" => Self::Lzma {
                     level: None,
                     auto: false,
                     obfuscation: None,
                 },
-                "zlib" => Compression::Zlib {
+                "zlib" => Self::Zlib {
                     level: None,
                     auto: false,
                     obfuscation: None,
                 },
-                "zstd" => Compression::Zstd {
+                "zstd" => Self::Zstd {
                     level: None,
                     auto: false,
                     obfuscation: None,
@@ -352,19 +352,19 @@ impl ConfigProperty for Compression {
                 };
                 match t.get("algorithm") {
                     Some(String(s)) => match s.to_lowercase().as_str() {
-                        "none" => Compression::None { obfuscation },
-                        "lz4" => Compression::Lz4 { auto, obfuscation },
-                        "zstd" => Compression::Zstd {
+                        "none" => Self::None { obfuscation },
+                        "lz4" => Self::Lz4 { auto, obfuscation },
+                        "zstd" => Self::Zstd {
                             level,
                             auto,
                             obfuscation,
                         },
-                        "zlib" => Compression::Zlib {
+                        "zlib" => Self::Zlib {
                             level,
                             auto,
                             obfuscation,
                         },
-                        "lzma" => Compression::Lzma {
+                        "lzma" => Self::Lzma {
                             level,
                             auto,
                             obfuscation,
@@ -401,9 +401,9 @@ impl TryFrom<&BackupConfig> for Repo {
             .ok_or(ConfigError::MissingKey("repo"))?
             .to_string();
 
-        let mut repo = repository.parse::<Repo>().map_err(ConfigError::Other)?;
+        let mut repo = repository.parse::<Self>().map_err(ConfigError::Other)?;
 
-        repo.passphrase = config.passphrase.to_owned();
+        config.passphrase.clone_into(&mut repo.passphrase);
 
         Ok(repo)
     }
@@ -420,9 +420,9 @@ impl TryFrom<&BackupConfig> for Archive {
             config.paths.clone()
         };
 
-        let compression = config.compression.to_owned();
-        let pattern_file = config.pattern_file.to_owned();
-        let exclude_file = config.exclude_file.to_owned();
+        let compression = config.compression.clone();
+        let pattern_file = config.pattern_file.clone();
+        let exclude_file = config.exclude_file.clone();
 
         Ok(Self {
             name,
@@ -474,7 +474,7 @@ impl ConfigProperty for String {
 impl ConfigProperty for PathBuf {
     fn parse(value: &toml::Value) -> Result<Self, ConfigError> {
         match value {
-            toml::Value::String(s) => Ok(PathBuf::from(s)),
+            toml::Value::String(s) => Ok(Self::from(s)),
             _ => Err(ConfigError::TypeError {
                 expected: Some("string"),
                 found: Some(value.type_str()),
@@ -486,13 +486,13 @@ impl ConfigProperty for PathBuf {
 impl ConfigProperty for RepoConfig {
     fn parse(value: &toml::Value) -> Result<Self, ConfigError> {
         match value {
-            toml::Value::String(s) => Ok(RepoConfig::Combined(s.to_owned())),
+            toml::Value::String(s) => Ok(Self::Combined(s.to_owned())),
             toml::Value::Table(t) => {
                 let user: Option<String> = ConfigProperty::from_map(t, "user")?;
                 let host: Option<String> = ConfigProperty::from_map(t, "host")?;
                 let path: Option<PathBuf> = ConfigProperty::from_map(t, "path")?;
 
-                Ok(RepoConfig::Split { user, host, path })
+                Ok(Self::Split { user, host, path })
             }
             _ => Err(ConfigError::TypeError {
                 expected: Some("string or table"),
@@ -542,7 +542,7 @@ impl ConfigProperty for BackupConfig {
     fn parse(value: &toml::Value) -> Result<Self, ConfigError> {
         use toml::Value as T;
 
-        let map = value.as_table().ok_or(ConfigError::TypeError {
+        let map = value.as_table().ok_or_else(|| ConfigError::TypeError {
             expected: Some("table"),
             found: Some(value.type_str()),
         })?;
@@ -612,8 +612,8 @@ impl ConfigProperty for Vec<(Repo, Archive)> {
         let backups: Vec<BackupConfig> =
             ConfigProperty::from_map(map, "backup")?.unwrap_or_default();
 
-        debug!("Parsed templates: {:#?}", templates);
-        debug!("Parsed backups: {:#?}", backups);
+        debug!("Parsed templates: {templates:#?}",);
+        debug!("Parsed backups: {backups:#?}",);
 
         backups
             .into_iter()

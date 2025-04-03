@@ -11,7 +11,7 @@ use std::{
 impl TryFrom<serde_json::Value> for Event {
     type Error = Error;
     fn try_from(value: serde_json::Value) -> Result<Self> {
-        let _type = match value.get("type") {
+        let r#type = match value.get("type") {
             Some(serde_json::Value::String(t)) => t,
             _ => return Err("no type".into()),
         };
@@ -37,14 +37,14 @@ impl TryFrom<serde_json::Value> for Event {
             value
                 .get("message")
                 .and_then(|m| m.as_str())
-                .map(|m| m.to_owned())
+                .map(ToOwned::to_owned)
         };
         let finished = || value.get("finished").and_then(|f| f.as_bool());
         let msgid = || {
             value
                 .get("msgid")
                 .and_then(|m| m.as_str())
-                .map(|m| m.to_owned())
+                .map(ToOwned::to_owned)
         };
         let operation = || value.get("operation").and_then(|o| o.as_u64());
         let level = || {
@@ -57,7 +57,7 @@ impl TryFrom<serde_json::Value> for Event {
                     "warning" => Some(Level::Warn),
                     "error" => Some(Level::Error),
                     _ => {
-                        warn!("unknown log level: {}", l);
+                        warn!("unknown log level: {l}");
                         None
                     }
                 })
@@ -74,7 +74,7 @@ impl TryFrom<serde_json::Value> for Event {
                     "WARNING" => Some(Level::Warn),
                     "ERROR" => Some(Level::Error),
                     _ => {
-                        warn!("unknown log level: {}", l);
+                        warn!("unknown log level: {l}");
                         None
                     }
                 })
@@ -88,13 +88,13 @@ impl TryFrom<serde_json::Value> for Event {
             value
                 .get("name")
                 .and_then(|n| n.as_str())
-                .map(|n| n.to_owned())
+                .map(ToOwned::to_owned)
         };
         let status = || {
             value
                 .get("status")
                 .and_then(|s| s.as_str())
-                .map(|s| s.to_owned())
+                .map(ToOwned::to_owned)
         };
         let current = || value.get("current").and_then(|c| c.as_u64());
         let total = || value.get("total").and_then(|t| t.as_u64());
@@ -102,10 +102,10 @@ impl TryFrom<serde_json::Value> for Event {
             value
                 .get("env_var")
                 .and_then(|e| e.as_str())
-                .map(|e| e.to_owned())
+                .map(ToOwned::to_owned)
         };
 
-        let event = match _type.as_str() {
+        let event = match r#type.as_str() {
             "archive_progress" => Self::ArchiveProgress {
                 nfiles: nfiles().unwrap_or_default(),
                 compressed_size: compressed_size().unwrap_or_default(),
@@ -153,7 +153,7 @@ impl TryFrom<serde_json::Value> for Event {
                 env_var: env_var(),
                 msgid: msgid().unwrap(),
             },
-            _ => return Err(format!("Unknown event type: {}", _type).into()),
+            _ => return Err(format!("Unknown event type: {type}").into()),
         };
         Ok(event)
     }
@@ -165,7 +165,7 @@ pub struct Events<R: Read> {
 
 impl<R: Read> From<R> for Events<R> {
     fn from(readable: R) -> Self {
-        Events {
+        Self {
             lines: BufReader::new(readable).lines(),
         }
     }
@@ -181,7 +181,7 @@ impl<R: Read> Iterator for Events<R> {
             Err(err) => return Some(Event::Error(Box::new(err))),
         };
 
-        trace!("[borg] {:#?}", line);
+        trace!("[borg] {line:#?}");
 
         let json: std::result::Result<serde_json::Value, _> = serde_json::from_str(&line);
         let json = match json {
@@ -192,11 +192,11 @@ impl<R: Read> Iterator for Events<R> {
             }
         };
 
-        debug!("{:#?}", json);
+        debug!("{json:#?}");
 
         match Event::try_from(json) {
             Ok(event) => {
-                debug!("{:#?}", event);
+                debug!("{event:#?}");
                 Some(event)
             }
             Err(e) => {
@@ -216,7 +216,7 @@ fn log_command(cmd: &Command) {
             .collect::<Vec<_>>()
             .join(" ")
     );
-    debug!("Executing command: {}", command);
+    debug!("Executing command: {command}");
 }
 
 impl TryFrom<serde_json::Value> for RepoInfo {
@@ -297,7 +297,7 @@ impl TryFrom<serde_json::Value> for RepoInfo {
             .map(PathBuf::from)
             .ok_or("missing key: \"security_dir\"")?;
 
-        Ok(RepoInfo {
+        Ok(Self {
             cache_path,
             total_chunks,
             total_csize,
@@ -576,7 +576,7 @@ impl Backend for BorgWrapper {
         }
 
         cmd.arg("--json");
-        cmd.arg(&repository.to_string());
+        cmd.arg(repository.to_string());
 
         log_command(&cmd);
 

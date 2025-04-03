@@ -31,13 +31,13 @@ pub enum Encryption {
 impl Display for Encryption {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Encryption::None => write!(f, "none"),
-            Encryption::RepoKey => write!(f, "repokey"),
-            Encryption::RepoKeyBlake2 => write!(f, "repokey-blake2"),
-            Encryption::KeyFile => write!(f, "keyfile"),
-            Encryption::KeyFileBlake2 => write!(f, "keyfile-blake2"),
-            Encryption::Authenticated => write!(f, "authenticated"),
-            Encryption::AuthenticatedBlake2 => write!(f, "authenticated-blake2"),
+            Self::None => write!(f, "none"),
+            Self::RepoKey => write!(f, "repokey"),
+            Self::RepoKeyBlake2 => write!(f, "repokey-blake2"),
+            Self::KeyFile => write!(f, "keyfile"),
+            Self::KeyFileBlake2 => write!(f, "keyfile-blake2"),
+            Self::Authenticated => write!(f, "authenticated"),
+            Self::AuthenticatedBlake2 => write!(f, "authenticated-blake2"),
         }
     }
 }
@@ -72,19 +72,19 @@ pub enum Compression {
 impl Display for Compression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         fn fmt_obfuscation(obfuscate: &Option<NonZeroU8>) -> String {
-            obfuscate.map_or("".to_string(), |o| format!("obfuscate,{},", o.get()))
+            obfuscate.map_or(String::new(), |o| format!("obfuscate,{},", o.get()))
         }
 
         fn fmt_auto(auto: &bool) -> String {
             if *auto {
                 "auto,".to_string()
             } else {
-                "".to_string()
+                String::new()
             }
         }
 
         fn fmt_level(level: &Option<u8>) -> String {
-            level.map_or("".to_string(), |l| format!(",{}", l))
+            level.map_or(String::new(), |l| format!(",{l}"))
         }
 
         use Compression::*;
@@ -149,8 +149,8 @@ pub struct Archive {
 }
 
 impl Archive {
-    pub fn new(name: String) -> Self {
-        Archive {
+    pub const fn new(name: String) -> Self {
+        Self {
             name,
             paths: Vec::new(),
             compression: None,
@@ -276,19 +276,19 @@ impl Display for Event {
             }
             ProgressMessage { message, .. } => {
                 if let Some(message) = message {
-                    write!(f, "{}", message)
+                    write!(f, "{message}")
                 } else {
                     Ok(())
                 }
             }
             LogMessage { message, .. } => {
-                write!(f, "{}", message)
+                write!(f, "{message}")
             }
             ProgressPercent { message, .. } => write!(f, "{message}"),
             FileStatus { path, status } => write!(f, "{} {}", status, path.display()),
-            Prompt { prompt, .. } => write!(f, "{}", prompt),
-            Answer { answer, .. } => write!(f, "{}", answer),
-            Other(s) => write!(f, "{}", s),
+            Prompt { prompt, .. } => write!(f, "{prompt}"),
+            Answer { answer, .. } => write!(f, "{answer}"),
+            Other(s) => write!(f, "{s}"),
             Error(e) => write!(f, "{e}"),
         }
     }

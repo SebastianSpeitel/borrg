@@ -85,7 +85,7 @@ pub fn run(mut borg: Borg, config: Config, args: Args) {
                 prefix.push(format!("D {}", indicatif::HumanBytes(deduplicated_size)));
 
                 pb.set_position(nfiles);
-                prefix.push(format!("N {}", nfiles));
+                prefix.push(format!("N {nfiles}"));
 
                 pb.set_prefix(prefix.join(" "));
 
