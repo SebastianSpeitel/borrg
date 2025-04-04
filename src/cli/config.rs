@@ -1,7 +1,9 @@
+use std::sync::Arc;
 use std::{fmt::Display, num::NonZeroU8, path::PathBuf};
 
-use log::{debug, warn};
+use log::debug;
 
+use crate::borg::Repository;
 use crate::{Archive, Compression, Passphrase, Repo};
 
 #[derive(Debug)]
@@ -89,78 +91,6 @@ impl std::process::Termination for ConfigError {
     }
 }
 
-#[derive(Clone, Debug)]
-enum RepoConfig {
-    Split {
-        user: Option<String>,
-        host: Option<String>,
-        path: Option<PathBuf>,
-    },
-    Combined(String),
-}
-
-impl RepoConfig {
-    pub fn inherit(&mut self, other: &Self) {
-        use RepoConfig::*;
-        // inherit user
-        if let Split { user, .. } = self {
-            if user.is_none() {
-                if let Split { user: u, .. } = other {
-                    user.clone_from(u);
-                }
-            }
-        }
-        // inherit host
-        if let Split { host, .. } = self {
-            if host.is_none() {
-                if let Split { host: h, .. } = other {
-                    host.clone_from(h);
-                }
-            }
-        }
-        // inherit path
-        if let Split { path, .. } = self {
-            if path.is_none() {
-                if let Split { path: p, .. } = other {
-                    path.clone_from(p);
-                }
-            }
-        }
-    }
-}
-
-impl Display for RepoConfig {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Split {
-                user: None,
-                host: Some(h),
-                path: None,
-            } => write!(f, "{h}"),
-            Self::Split {
-                user: None,
-                host: None,
-                path: Some(p),
-            } => write!(f, "{}", p.display()),
-            Self::Split {
-                user: None,
-                host: Some(h),
-                path: Some(p),
-            } => write!(f, "{h}:{}", p.display()),
-            Self::Split {
-                user: Some(u),
-                host: Some(h),
-                path: Some(p),
-            } => write!(f, "{u}@{h}:{}", p.display()),
-            Self::Combined(combined) => write!(f, "{combined}"),
-            _ => {
-                warn!("RepoConfig::fmt: Unhandled case");
-                write!(f, "::")
-            }
-        }
-    }
-}
-
 /// Configuration for a backup
 ///
 /// All fields are optional, because they can be inherited.
@@ -170,7 +100,7 @@ struct BackupConfig {
     pub template: Option<String>,
 
     /// Repository to backup to
-    pub repo: Option<RepoConfig>,
+    pub repo: Option<Arc<dyn Repository>>,
 
     /// Passphrase
     pub passphrase: Option<Passphrase>,
@@ -225,12 +155,7 @@ impl BackupConfig {
         // Merge repo
         match self.repo {
             None => self.repo.clone_from(&template.repo),
-            Some(RepoConfig::Combined(_)) => {}
-            Some(ref mut r) => {
-                if let Some(t) = &template.repo {
-                    r.inherit(t);
-                }
-            }
+            Some(..) => {}
         };
 
         // Inherit passphrase
@@ -399,7 +324,7 @@ impl TryFrom<&BackupConfig> for Repo {
             .repo
             .as_ref()
             .ok_or(ConfigError::MissingKey("repo"))?
-            .to_string();
+            .repo_url();
 
         let mut repo = repository.parse::<Self>().map_err(ConfigError::Other)?;
 
@@ -483,25 +408,6 @@ impl ConfigProperty for PathBuf {
     }
 }
 
-impl ConfigProperty for RepoConfig {
-    fn parse(value: &toml::Value) -> Result<Self, ConfigError> {
-        match value {
-            toml::Value::String(s) => Ok(Self::Combined(s.to_owned())),
-            toml::Value::Table(t) => {
-                let user: Option<String> = ConfigProperty::from_map(t, "user")?;
-                let host: Option<String> = ConfigProperty::from_map(t, "host")?;
-                let path: Option<PathBuf> = ConfigProperty::from_map(t, "path")?;
-
-                Ok(Self::Split { user, host, path })
-            }
-            _ => Err(ConfigError::TypeError {
-                expected: Some("string or table"),
-                found: Some(value.type_str()),
-            }),
-        }
-    }
-}
-
 impl<T> ConfigProperty for Vec<T>
 where
     T: ConfigProperty,
@@ -550,7 +456,9 @@ impl ConfigProperty for BackupConfig {
         let template: String =
             ConfigProperty::from_map(map, "template")?.unwrap_or_else(|| "default".to_string());
 
-        let repo: Option<RepoConfig> = ConfigProperty::from_map(map, "repository")?;
+        let repo: Option<_> = map
+            .get("repository")
+            .and_then(|r| crate::borg::repo::parse(r).ok());
 
         let passphrase = match (map.get("passphrase"), map.get("passcommand")) {
             (Some(T::String(p)), None) => Some(Passphrase::Passphrase(p.to_owned())),
