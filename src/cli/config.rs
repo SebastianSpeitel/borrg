@@ -102,7 +102,7 @@ struct BackupConfig {
     pub paths: Vec<PathBuf>,
 
     /// Compression level
-    pub compression: Compression,
+    pub compression: Option<Compression>,
 
     /// Pattern file
     pub pattern_file: Option<PathBuf>,
@@ -195,7 +195,7 @@ impl Default for BackupConfig {
             repo: None,
             passphrase: None,
             paths: vec![PathBuf::from("~")],
-            compression: Compression::None,
+            compression: None,
             pattern_file: None,
             exclude_file: Some(PathBuf::from(".borgignore")),
         }
@@ -230,7 +230,7 @@ impl TryFrom<&BackupConfig> for Archive {
             config.paths.clone()
         };
 
-        let compression = config.compression.clone();
+        let compression = config.compression.clone().unwrap_or_default();
         let pattern_file = config.pattern_file.clone();
         let exclude_file = config.exclude_file.clone();
 
@@ -362,8 +362,7 @@ impl ConfigProperty for BackupConfig {
             .get("compression")
             .map(Compression::try_from)
             .transpose()
-            .map_err(ConfigError::Other)?
-            .unwrap_or_default();
+            .map_err(ConfigError::Other)?;
 
         let pattern_file: Option<PathBuf> = ConfigProperty::from_map(map, "pattern_file")?;
 
