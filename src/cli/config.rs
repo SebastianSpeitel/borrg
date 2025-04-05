@@ -1,10 +1,10 @@
 use std::sync::Arc;
-use std::{fmt::Display, num::NonZeroU8, path::PathBuf};
+use std::{fmt::Display, path::PathBuf};
 
 use log::debug;
 
-use crate::borg::Repository;
-use crate::{Archive, Compression, Passphrase, Repo};
+use crate::borg::{AsRepoUrl, Compression};
+use crate::{Archive, Passphrase, Repo};
 
 #[derive(Debug)]
 pub enum ConfigError {
@@ -23,15 +23,6 @@ pub enum ConfigError {
     IOError(std::io::Error),
     ParseError(toml::de::Error),
     Other(&'static str),
-}
-
-impl ConfigError {
-    fn at_key<T: AsRef<str>>(self, key: T) -> Self {
-        Self::Keyed {
-            key: key.as_ref().to_string(),
-            err: Box::new(self),
-        }
-    }
 }
 
 fn at_key<T: AsRef<str>>(key: T) -> impl FnOnce(ConfigError) -> ConfigError {
@@ -100,7 +91,7 @@ struct BackupConfig {
     pub template: Option<String>,
 
     /// Repository to backup to
-    pub repo: Option<Arc<dyn Repository>>,
+    pub repo: Option<Arc<dyn AsRepoUrl>>,
 
     /// Passphrase
     pub passphrase: Option<Passphrase>,
@@ -111,7 +102,7 @@ struct BackupConfig {
     pub paths: Vec<PathBuf>,
 
     /// Compression level
-    pub compression: Option<Compression>,
+    pub compression: Compression,
 
     /// Pattern file
     pub pattern_file: Option<PathBuf>,
@@ -204,116 +195,10 @@ impl Default for BackupConfig {
             repo: None,
             passphrase: None,
             paths: vec![PathBuf::from("~")],
-            compression: None,
+            compression: Compression::None,
             pattern_file: None,
             exclude_file: Some(PathBuf::from(".borgignore")),
         }
-    }
-}
-
-impl ConfigProperty for Compression {
-    fn parse(value: &toml::Value) -> Result<Self, ConfigError> {
-        use toml::Value::*;
-        let compression = match value {
-            String(s) => match s.to_lowercase().as_str() {
-                "none" => Self::None { obfuscation: None },
-                "lz4" => Self::Lz4 {
-                    auto: false,
-                    obfuscation: None,
-                },
-                "lzma" => Self::Lzma {
-                    level: None,
-                    auto: false,
-                    obfuscation: None,
-                },
-                "zlib" => Self::Zlib {
-                    level: None,
-                    auto: false,
-                    obfuscation: None,
-                },
-                "zstd" => Self::Zstd {
-                    level: None,
-                    auto: false,
-                    obfuscation: None,
-                },
-                _ => return Err(ConfigError::ValueError),
-            },
-            Table(t) => {
-                let auto = match t.get("auto") {
-                    Some(Boolean(b)) => *b,
-                    None => false,
-                    _ => {
-                        return Err(ConfigError::TypeError {
-                            expected: Some("boolean"),
-                            found: Some(value.type_str()),
-                        }
-                        .at_key("auto"))
-                    }
-                };
-                let level = match t.get("level") {
-                    Some(Integer(i)) => Some(*i as u8),
-                    None => None,
-                    _ => {
-                        return Err(ConfigError::TypeError {
-                            expected: Some("integer"),
-                            found: Some(value.type_str()),
-                        }
-                        .at_key("level"))
-                    }
-                };
-                let obfuscation = match t.get("obfuscation") {
-                    Some(Integer(i)) => Some(
-                        NonZeroU8::try_from(*i as u8)
-                            .map_err(|_| ConfigError::ValueError.at_key("obfuscation"))?,
-                    ),
-                    None => None,
-                    _ => {
-                        return Err(ConfigError::TypeError {
-                            expected: Some("integer"),
-                            found: Some(value.type_str()),
-                        }
-                        .at_key("obfuscation"))
-                    }
-                };
-                match t.get("algorithm") {
-                    Some(String(s)) => match s.to_lowercase().as_str() {
-                        "none" => Self::None { obfuscation },
-                        "lz4" => Self::Lz4 { auto, obfuscation },
-                        "zstd" => Self::Zstd {
-                            level,
-                            auto,
-                            obfuscation,
-                        },
-                        "zlib" => Self::Zlib {
-                            level,
-                            auto,
-                            obfuscation,
-                        },
-                        "lzma" => Self::Lzma {
-                            level,
-                            auto,
-                            obfuscation,
-                        },
-                        _ => return Err(ConfigError::ValueError.at_key("algorithm")),
-                    },
-                    None => return Err(ConfigError::MissingKey("algorithm")),
-                    _ => {
-                        return Err(ConfigError::TypeError {
-                            expected: Some("string"),
-                            found: Some(value.type_str()),
-                        }
-                        .at_key("algorithm"))
-                    }
-                }
-            }
-            _ => {
-                return Err(ConfigError::TypeError {
-                    expected: Some("string or table"),
-                    found: Some(value.type_str()),
-                })
-            }
-        };
-        Ok(compression)
     }
 }
 
@@ -324,7 +209,7 @@ impl TryFrom<&BackupConfig> for Repo {
             .repo
             .as_ref()
             .ok_or(ConfigError::MissingKey("repo"))?
-            .repo_url();
+            .as_repo_url();
 
         let mut repo = repository.parse::<Self>().map_err(ConfigError::Other)?;
 
@@ -472,7 +357,13 @@ impl ConfigProperty for BackupConfig {
 
         let paths: Vec<PathBuf> = ConfigProperty::from_map(map, "path")?.unwrap_or_default();
 
-        let compression: Option<Compression> = ConfigProperty::from_map(map, "compression")?;
+        // let compression: Option<Compression> = ConfigProperty::from_map(map, "compression")?;
+        let compression = map
+            .get("compression")
+            .map(Compression::try_from)
+            .transpose()
+            .map_err(ConfigError::Other)?
+            .unwrap_or_default();
 
         let pattern_file: Option<PathBuf> = ConfigProperty::from_map(map, "pattern_file")?;
 
@@ -586,7 +477,7 @@ mod tests {
         assert_eq!(repo.to_string(), ".");
         assert_eq!(repo.passphrase, None);
         assert_eq!(archive.paths, vec![PathBuf::from("~")]);
-        assert_eq!(archive.compression, None);
+        assert_eq!(archive.compression, Compression::default());
         assert_eq!(archive.pattern_file, None);
         assert_eq!(archive.exclude_file, Some(PathBuf::from(".borgignore")));
     }
@@ -609,7 +500,7 @@ mod tests {
         let results = result.unwrap();
         assert_eq!(results.len(), 1);
         let (_, archive) = results.first().unwrap();
-        assert!(matches!(archive.compression, Some(Compression::Lz4 { .. })));
+        assert_eq!(archive.compression, Compression::Lz4);
     }
 
     #[test]
@@ -631,6 +522,6 @@ mod tests {
         let results = result.unwrap();
         assert_eq!(results.len(), 1);
         let (_, archive) = results.first().unwrap();
-        assert!(matches!(archive.compression, Some(Compression::Lz4 { .. })));
+        assert_eq!(archive.compression, Compression::Lz4);
     }
 }

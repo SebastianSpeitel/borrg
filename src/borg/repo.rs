@@ -4,7 +4,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub trait Repository {
+pub trait AsRepoUrl {
+    fn as_repo_url(&self) -> Cow<str>;
+
+    fn protocol(&self) -> &str;
+
     #[inline]
     fn path(&self) -> Option<&Path> {
         None
@@ -24,10 +28,6 @@ pub trait Repository {
     fn port(&self) -> Option<NonZeroU16> {
         None
     }
-
-    fn protocol(&self) -> &str;
-
-    fn repo_url(&self) -> Cow<str>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,7 +38,7 @@ pub struct Ssh<'a> {
     pub path: Cow<'a, Path>,
 }
 
-impl Repository for Ssh<'_> {
+impl AsRepoUrl for Ssh<'_> {
     #[inline]
     fn host(&self) -> Option<&str> {
         Some(self.host.as_ref())
@@ -65,7 +65,7 @@ impl Repository for Ssh<'_> {
     }
 
     #[inline]
-    fn repo_url(&self) -> Cow<str> {
+    fn as_repo_url(&self) -> Cow<str> {
         let mut url = String::new();
         url.push_str("ssh://");
         if let Some(user) = &self.user {
@@ -90,7 +90,7 @@ pub struct Sftp<'a> {
     pub path: Cow<'a, Path>,
 }
 
-impl Repository for Sftp<'_> {
+impl AsRepoUrl for Sftp<'_> {
     #[inline]
     fn host(&self) -> Option<&str> {
         Some(self.host.as_ref())
@@ -117,7 +117,7 @@ impl Repository for Sftp<'_> {
     }
 
     #[inline]
-    fn repo_url(&self) -> Cow<str> {
+    fn as_repo_url(&self) -> Cow<str> {
         let mut url = String::new();
         url.push_str("sftp://");
         if let Some(user) = &self.user {
@@ -140,7 +140,7 @@ pub struct RClone<'a> {
     pub path: Cow<'a, Path>,
 }
 
-impl Repository for RClone<'_> {
+impl AsRepoUrl for RClone<'_> {
     #[inline]
     fn path(&self) -> Option<&Path> {
         Some(self.path.as_ref())
@@ -152,7 +152,7 @@ impl Repository for RClone<'_> {
     }
 
     #[inline]
-    fn repo_url(&self) -> Cow<str> {
+    fn as_repo_url(&self) -> Cow<str> {
         let mut url = String::new();
         url.push_str("rclone:");
         url.push_str(self.remote.as_ref());
@@ -162,7 +162,7 @@ impl Repository for RClone<'_> {
     }
 }
 
-impl Repository for Cow<'_, Path> {
+impl AsRepoUrl for Cow<'_, Path> {
     #[inline]
     fn path(&self) -> Option<&Path> {
         Some(self.as_ref())
@@ -174,12 +174,12 @@ impl Repository for Cow<'_, Path> {
     }
 
     #[inline]
-    fn repo_url(&self) -> Cow<str> {
+    fn as_repo_url(&self) -> Cow<str> {
         self.to_string_lossy()
     }
 }
 
-impl Repository for PathBuf {
+impl AsRepoUrl for PathBuf {
     #[inline]
     fn path(&self) -> Option<&Path> {
         Some(self.as_path())
@@ -191,12 +191,12 @@ impl Repository for PathBuf {
     }
 
     #[inline]
-    fn repo_url(&self) -> Cow<str> {
+    fn as_repo_url(&self) -> Cow<str> {
         self.to_string_lossy()
     }
 }
 
-impl Repository for String {
+impl AsRepoUrl for String {
     #[inline]
     fn protocol(&self) -> &str {
         match self.as_str() {
@@ -208,12 +208,12 @@ impl Repository for String {
     }
 
     #[inline]
-    fn repo_url(&self) -> Cow<str> {
+    fn as_repo_url(&self) -> Cow<str> {
         Cow::Borrowed(self.as_str())
     }
 }
 
-impl Repository for std::sync::Arc<dyn Repository + '_> {
+impl AsRepoUrl for std::sync::Arc<dyn AsRepoUrl + '_> {
     #[inline]
     fn path(&self) -> Option<&Path> {
         self.as_ref().path()
@@ -240,16 +240,16 @@ impl Repository for std::sync::Arc<dyn Repository + '_> {
     }
 
     #[inline]
-    fn repo_url(&self) -> Cow<str> {
-        self.as_ref().repo_url()
+    fn as_repo_url(&self) -> Cow<str> {
+        self.as_ref().as_repo_url()
     }
 }
 
-impl core::fmt::Debug for dyn Repository + '_ {
+impl core::fmt::Debug for dyn AsRepoUrl + '_ {
     #[inline]
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         f.debug_struct("Repository")
-            .field("repo_url", &self.repo_url())
+            .field("repo_url", &self.as_repo_url())
             .field("protocol", &self.protocol())
             .field("path", &self.path())
             .field("user", &self.user())
@@ -260,7 +260,7 @@ impl core::fmt::Debug for dyn Repository + '_ {
 }
 
 #[inline]
-pub fn parse(value: &toml::Value) -> Result<std::sync::Arc<dyn Repository>, &'static str> {
+pub fn parse(value: &toml::Value) -> Result<std::sync::Arc<dyn AsRepoUrl>, &'static str> {
     use std::sync::Arc;
     if let Some(repo) = value.as_str() {
         return Ok(Arc::new(repo.to_string()));

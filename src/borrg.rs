@@ -1,9 +1,10 @@
 use std::fmt::Display;
-use std::num::NonZeroU8;
 use std::path::PathBuf;
 use std::time::SystemTime;
 mod repo;
 pub use repo::Repo;
+
+use crate::borg::Compression;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Result<T> = std::result::Result<T, Error>;
@@ -42,107 +43,11 @@ impl Display for Encryption {
     }
 }
 
-#[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Compression {
-    None {
-        obfuscation: Option<NonZeroU8>,
-    },
-    Lz4 {
-        auto: bool,
-        obfuscation: Option<NonZeroU8>,
-    },
-    Zstd {
-        level: Option<u8>,
-        auto: bool,
-        obfuscation: Option<NonZeroU8>,
-    },
-    Zlib {
-        level: Option<u8>,
-        auto: bool,
-        obfuscation: Option<NonZeroU8>,
-    },
-    Lzma {
-        level: Option<u8>,
-        auto: bool,
-        obfuscation: Option<NonZeroU8>,
-    },
-}
-
-impl Display for Compression {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        fn fmt_obfuscation(obfuscate: &Option<NonZeroU8>) -> String {
-            obfuscate.map_or(String::new(), |o| format!("obfuscate,{},", o.get()))
-        }
-
-        fn fmt_auto(auto: &bool) -> String {
-            if *auto {
-                "auto,".to_string()
-            } else {
-                String::new()
-            }
-        }
-
-        fn fmt_level(level: &Option<u8>) -> String {
-            level.map_or(String::new(), |l| format!(",{l}"))
-        }
-
-        use Compression::*;
-        match self {
-            None { obfuscation } => {
-                write!(f, "{}none", fmt_obfuscation(obfuscation))
-            }
-            Lz4 { auto, obfuscation } => {
-                write!(f, "{}lz4{}", fmt_obfuscation(obfuscation), fmt_auto(auto))
-            }
-            Zstd {
-                level,
-                auto,
-                obfuscation,
-            } => {
-                write!(
-                    f,
-                    "{}{}zstd{}",
-                    fmt_obfuscation(obfuscation),
-                    fmt_auto(auto),
-                    fmt_level(level)
-                )
-            }
-            Zlib {
-                level,
-                auto,
-                obfuscation,
-            } => {
-                write!(
-                    f,
-                    "{}{}zlib{}",
-                    fmt_obfuscation(obfuscation),
-                    fmt_auto(auto),
-                    fmt_level(level)
-                )
-            }
-            Lzma {
-                level,
-                auto,
-                obfuscation,
-            } => {
-                write!(
-                    f,
-                    "{}{}lzma{}",
-                    fmt_obfuscation(obfuscation),
-                    fmt_auto(auto),
-                    fmt_level(level)
-                )
-            }
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct Archive {
     pub(crate) name: String,
     pub(crate) paths: Vec<PathBuf>,
-    pub(crate) compression: Option<Compression>,
+    pub(crate) compression: Compression,
     pub(crate) pattern_file: Option<PathBuf>,
     pub(crate) exclude_file: Option<PathBuf>,
     pub(crate) comment: Option<String>,
@@ -153,14 +58,13 @@ impl Archive {
         Self {
             name,
             paths: Vec::new(),
-            compression: None,
+            compression: Compression::None,
             pattern_file: None,
             exclude_file: None,
             comment: None,
         }
     }
 
-    #[cfg(feature = "chrono")]
     pub fn today() -> Self {
         let now = chrono::Local::now();
         let name = now.format("%Y-%m-%d").to_string();
@@ -173,7 +77,7 @@ impl Archive {
     }
 
     pub fn compression(&mut self, compression: Compression) -> &mut Self {
-        self.compression.replace(compression);
+        self.compression = compression;
         self
     }
 
