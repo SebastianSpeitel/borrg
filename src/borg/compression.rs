@@ -2,37 +2,20 @@ use std::str::FromStr;
 
 use smol_str::SmolStr;
 
-pub trait AsCompression {
-    fn as_compression(&self) -> Compression;
-
-    #[inline]
-    fn as_compression_str(&self) -> SmolStr {
-        self.as_compression().as_compression_str()
-    }
-
-    #[inline]
-    fn level(&self) -> Option<u8> {
-        self.as_compression().level()
-    }
-
-    #[inline]
-    fn auto(&self) -> bool {
-        self.as_compression().auto()
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Lz4;
 
-impl AsCompression for Lz4 {
+impl From<Lz4> for Compression {
     #[inline]
-    fn as_compression(&self) -> Compression {
-        Compression::Lz4
+    fn from(_: Lz4) -> Self {
+        Self::Lz4
     }
+}
 
+impl AsRef<str> for Lz4 {
     #[inline]
-    fn as_compression_str(&self) -> SmolStr {
-        SmolStr::new_inline("lz4")
+    fn as_ref(&self) -> &str {
+        "lz4"
     }
 }
 
@@ -64,43 +47,47 @@ pub enum Zstd {
     Level22,
 }
 
-impl AsCompression for Zstd {
+impl Zstd {
     #[inline]
-    fn as_compression(&self) -> Compression {
-        Compression::Zstd(*self)
+    pub const fn level(&self) -> u8 {
+        *self as u8
     }
+}
 
+impl From<Zstd> for Compression {
     #[inline]
-    fn as_compression_str(&self) -> SmolStr {
+    fn from(zstd: Zstd) -> Self {
+        Self::Zstd(zstd)
+    }
+}
+
+impl AsRef<str> for Zstd {
+    #[inline]
+    fn as_ref(&self) -> &str {
         match *self {
-            Self::Level1 => SmolStr::new_inline("zstd,1"),
-            Self::Level2 => SmolStr::new_inline("zstd,2"),
-            Self::Level3 => SmolStr::new_inline("zstd,3"),
-            Self::Level4 => SmolStr::new_inline("zstd,4"),
-            Self::Level5 => SmolStr::new_inline("zstd,5"),
-            Self::Level6 => SmolStr::new_inline("zstd,6"),
-            Self::Level7 => SmolStr::new_inline("zstd,7"),
-            Self::Level8 => SmolStr::new_inline("zstd,8"),
-            Self::Level9 => SmolStr::new_inline("zstd,9"),
-            Self::Level10 => SmolStr::new_inline("zstd,10"),
-            Self::Level11 => SmolStr::new_inline("zstd,11"),
-            Self::Level12 => SmolStr::new_inline("zstd,12"),
-            Self::Level13 => SmolStr::new_inline("zstd,13"),
-            Self::Level14 => SmolStr::new_inline("zstd,14"),
-            Self::Level15 => SmolStr::new_inline("zstd,15"),
-            Self::Level16 => SmolStr::new_inline("zstd,16"),
-            Self::Level17 => SmolStr::new_inline("zstd,17"),
-            Self::Level18 => SmolStr::new_inline("zstd,18"),
-            Self::Level19 => SmolStr::new_inline("zstd,19"),
-            Self::Level20 => SmolStr::new_inline("zstd,20"),
-            Self::Level21 => SmolStr::new_inline("zstd,21"),
-            Self::Level22 => SmolStr::new_inline("zstd,22"),
+            Zstd::Level1 => "zstd,1",
+            Zstd::Level2 => "zstd,2",
+            Zstd::Level3 => "zstd,3",
+            Zstd::Level4 => "zstd,4",
+            Zstd::Level5 => "zstd,5",
+            Zstd::Level6 => "zstd,6",
+            Zstd::Level7 => "zstd,7",
+            Zstd::Level8 => "zstd,8",
+            Zstd::Level9 => "zstd,9",
+            Zstd::Level10 => "zstd,10",
+            Zstd::Level11 => "zstd,11",
+            Zstd::Level12 => "zstd,12",
+            Zstd::Level13 => "zstd,13",
+            Zstd::Level14 => "zstd,14",
+            Zstd::Level15 => "zstd,15",
+            Zstd::Level16 => "zstd,16",
+            Zstd::Level17 => "zstd,17",
+            Zstd::Level18 => "zstd,18",
+            Zstd::Level19 => "zstd,19",
+            Zstd::Level20 => "zstd,20",
+            Zstd::Level21 => "zstd,21",
+            Zstd::Level22 => "zstd,22",
         }
-    }
-
-    #[inline]
-    fn level(&self) -> Option<u8> {
-        Some(*self as u8)
     }
 }
 
@@ -116,6 +103,23 @@ impl FromStr for Zstd {
             "zstd,3" => Self::Level3,
             "zstd,4" => Self::Level4,
             "zstd,5" => Self::Level5,
+            "zstd,6" => Self::Level6,
+            "zstd,7" => Self::Level7,
+            "zstd,8" => Self::Level8,
+            "zstd,9" => Self::Level9,
+            "zstd,10" => Self::Level10,
+            "zstd,11" => Self::Level11,
+            "zstd,12" => Self::Level12,
+            "zstd,13" => Self::Level13,
+            "zstd,14" => Self::Level14,
+            "zstd,15" => Self::Level15,
+            "zstd,16" => Self::Level16,
+            "zstd,17" => Self::Level17,
+            "zstd,18" => Self::Level18,
+            "zstd,19" => Self::Level19,
+            "zstd,20" => Self::Level20,
+            "zstd,21" => Self::Level21,
+            "zstd,22" => Self::Level22,
             _ => return Err("invalid zstd compression string"),
         })
     }
@@ -170,31 +174,35 @@ pub enum Zlib {
     Level9,
 }
 
-impl AsCompression for Zlib {
+impl Zlib {
     #[inline]
-    fn as_compression(&self) -> Compression {
-        Compression::Zlib(*self)
+    pub const fn level(&self) -> u8 {
+        *self as u8
     }
+}
 
+impl From<Zlib> for Compression {
     #[inline]
-    fn as_compression_str(&self) -> SmolStr {
+    fn from(zlib: Zlib) -> Self {
+        Self::Zlib(zlib)
+    }
+}
+
+impl AsRef<str> for Zlib {
+    #[inline]
+    fn as_ref(&self) -> &str {
         match *self {
-            Self::Level0 => SmolStr::new_inline("zlib,0"),
-            Self::Level1 => SmolStr::new_inline("zlib,1"),
-            Self::Level2 => SmolStr::new_inline("zlib,2"),
-            Self::Level3 => SmolStr::new_inline("zlib,3"),
-            Self::Level4 => SmolStr::new_inline("zlib,4"),
-            Self::Level5 => SmolStr::new_inline("zlib,5"),
-            Self::Level6 => SmolStr::new_inline("zlib,6"),
-            Self::Level7 => SmolStr::new_inline("zlib,7"),
-            Self::Level8 => SmolStr::new_inline("zlib,8"),
-            Self::Level9 => SmolStr::new_inline("zlib,9"),
+            Zlib::Level0 => "zlib,0",
+            Zlib::Level1 => "zlib,1",
+            Zlib::Level2 => "zlib,2",
+            Zlib::Level3 => "zlib,3",
+            Zlib::Level4 => "zlib,4",
+            Zlib::Level5 => "zlib,5",
+            Zlib::Level6 => "zlib,6",
+            Zlib::Level7 => "zlib,7",
+            Zlib::Level8 => "zlib,8",
+            Zlib::Level9 => "zlib,9",
         }
-    }
-
-    #[inline]
-    fn level(&self) -> Option<u8> {
-        Some(*self as u8)
     }
 }
 
@@ -257,31 +265,35 @@ pub enum Lzma {
     Level9,
 }
 
-impl AsCompression for Lzma {
+impl Lzma {
     #[inline]
-    fn as_compression(&self) -> Compression {
-        Compression::Lzma(*self)
+    pub const fn level(&self) -> u8 {
+        *self as u8
     }
+}
 
+impl From<Lzma> for Compression {
     #[inline]
-    fn as_compression_str(&self) -> SmolStr {
+    fn from(lzma: Lzma) -> Self {
+        Self::Lzma(lzma)
+    }
+}
+
+impl AsRef<str> for Lzma {
+    #[inline]
+    fn as_ref(&self) -> &str {
         match *self {
-            Self::Level0 => SmolStr::new_inline("lzma,0"),
-            Self::Level1 => SmolStr::new_inline("lzma,1"),
-            Self::Level2 => SmolStr::new_inline("lzma,2"),
-            Self::Level3 => SmolStr::new_inline("lzma,3"),
-            Self::Level4 => SmolStr::new_inline("lzma,4"),
-            Self::Level5 => SmolStr::new_inline("lzma,5"),
-            Self::Level6 => SmolStr::new_inline("lzma,6"),
-            Self::Level7 => SmolStr::new_inline("lzma,7"),
-            Self::Level8 => SmolStr::new_inline("lzma,8"),
-            Self::Level9 => SmolStr::new_inline("lzma,9"),
+            Lzma::Level0 => "lzma,0",
+            Lzma::Level1 => "lzma,1",
+            Lzma::Level2 => "lzma,2",
+            Lzma::Level3 => "lzma,3",
+            Lzma::Level4 => "lzma,4",
+            Lzma::Level5 => "lzma,5",
+            Lzma::Level6 => "lzma,6",
+            Lzma::Level7 => "lzma,7",
+            Lzma::Level8 => "lzma,8",
+            Lzma::Level9 => "lzma,9",
         }
-    }
-
-    #[inline]
-    fn level(&self) -> Option<u8> {
-        Some(*self as u8)
     }
 }
 
@@ -347,32 +359,9 @@ impl Compression {
     pub const fn is_none(&self) -> bool {
         matches!(self, Self::None)
     }
-}
-
-impl AsCompression for Compression {
-    #[inline]
-    fn as_compression(&self) -> Compression {
-        *self
-    }
 
     #[inline]
-    fn as_compression_str(&self) -> SmolStr {
-        let prefix = "auto,".chars();
-        match *self {
-            Self::None => SmolStr::new_inline("none"),
-            Self::Lz4 => SmolStr::new_inline("lz4"),
-            Self::Lz4Auto => SmolStr::new_inline("auto,lz4"),
-            Self::Zstd(l) => l.as_compression_str(),
-            Self::ZstdAuto(l) => prefix.chain(l.as_compression_str().chars()).collect(),
-            Self::Zlib(l) => l.as_compression_str(),
-            Self::ZlibAuto(l) => prefix.chain(l.as_compression_str().chars()).collect(),
-            Self::Lzma(l) => l.as_compression_str(),
-            Self::LzmaAuto(l) => prefix.chain(l.as_compression_str().chars()).collect(),
-        }
-    }
-
-    #[inline]
-    fn auto(&self) -> bool {
+    pub const fn is_auto(&self) -> bool {
         matches!(
             self,
             Self::Lz4Auto | Self::LzmaAuto(..) | Self::ZstdAuto(..) | Self::ZlibAuto(..)
@@ -380,12 +369,28 @@ impl AsCompression for Compression {
     }
 
     #[inline]
-    fn level(&self) -> Option<u8> {
+    pub const fn level(&self) -> Option<u8> {
         match *self {
             Self::None | Self::Lz4 | Self::Lz4Auto => None,
-            Self::Lzma(l) | Self::LzmaAuto(l) => l.level(),
-            Self::Zlib(l) | Self::ZlibAuto(l) => l.level(),
-            Self::Zstd(l) | Self::ZstdAuto(l) => l.level(),
+            Self::Lzma(l) | Self::LzmaAuto(l) => Some(l.level()),
+            Self::Zlib(l) | Self::ZlibAuto(l) => Some(l.level()),
+            Self::Zstd(l) | Self::ZstdAuto(l) => Some(l.level()),
+        }
+    }
+
+    #[inline]
+    pub fn as_smol_str(&self) -> SmolStr {
+        let prefix = ['a', 'u', 't', 'o', ','].into_iter();
+        match *self {
+            Self::None => SmolStr::new_static("none"),
+            Self::Lz4 => SmolStr::new_static("lz4"),
+            Self::Lz4Auto => SmolStr::new_static("auto,lz4"),
+            Self::Zstd(l) => SmolStr::new_inline(l.as_ref()),
+            Self::ZstdAuto(l) => prefix.chain(l.as_ref().chars()).collect(),
+            Self::Zlib(l) => SmolStr::new_inline(l.as_ref()),
+            Self::ZlibAuto(l) => prefix.chain(l.as_ref().chars()).collect(),
+            Self::Lzma(l) => SmolStr::new_inline(l.as_ref()),
+            Self::LzmaAuto(l) => prefix.chain(l.as_ref().chars()).collect(),
         }
     }
 }
@@ -393,7 +398,7 @@ impl AsCompression for Compression {
 impl core::fmt::Display for Compression {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.as_compression_str().as_str())
+        self.as_smol_str().fmt(f)
     }
 }
 
@@ -481,7 +486,7 @@ mod tests {
     fn test_compression() {
         let compression = Compression::Zstd(Zstd::Level3);
         assert_eq!(compression.level(), Some(3));
-        assert_eq!(compression.auto(), false);
+        assert_eq!(compression.is_auto(), false);
         assert_eq!(compression.to_string(), "zstd,3");
     }
 }

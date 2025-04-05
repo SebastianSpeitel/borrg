@@ -1,4 +1,4 @@
-use crate::{borg::AsCompression, borrg::*, util::resolve_path};
+use crate::{borrg::*, util::resolve_path};
 use log::{debug, trace, warn, Level};
 use std::{
     io::{BufRead, BufReader, Lines, Read},
@@ -507,7 +507,7 @@ impl Backend for BorgWrapper {
         }
 
         cmd.arg("--compression")
-            .arg(archive.compression.as_compression_str());
+            .arg(archive.compression.as_smol_str());
 
         if let Some(pattern_file) = &archive.pattern_file {
             let pattern_file = if pattern_file.is_absolute() {
