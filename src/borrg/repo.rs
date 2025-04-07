@@ -47,8 +47,10 @@ use std::{fmt::Display, str::FromStr};
 /// let remote_in_home: Repo = "ssh://user@host:22/~/path/to/repo".parse().unwrap();
 /// assert_eq!(remote_in_home.to_string(), "ssh://user@host:22/~/path/to/repo");
 ///
+/// #[cfg(feature = "deprecated")]
 /// let old: Repo = "user@host:/path/to/repo".parse().unwrap();
-/// assert_eq!(old.to_string(), "ssh://user@host/path/to/repo");
+/// #[cfg(feature = "deprecated")]
+/// assert_eq!(old.to_string(), "ssh://user@host//path/to/repo");
 /// ```
 #[derive(Debug, Clone, Eq)]
 pub struct Repo {
