@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use log::debug;
 use thiserror::Error;
 
-use crate::borg::{Compression, RepoUrl};
-use crate::{Archive, Passphrase, Repo};
+use crate::borg::{Compression, Passphrase, RepoUrl};
+use crate::{Archive, Repo};
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -291,8 +291,6 @@ where
 
 impl ConfigProperty for BackupConfig {
     fn parse(value: &toml::Value) -> Result<Self, ConfigError> {
-        use toml::Value as T;
-
         let map = value.as_table().ok_or_else(|| ConfigError::TypeError {
             expected: Some("table"),
             found: Some(value.type_str()),
@@ -301,19 +299,13 @@ impl ConfigProperty for BackupConfig {
         let template: String =
             ConfigProperty::from_map(map, "template")?.unwrap_or_else(|| "default".to_string());
 
-        let repo: Option<_> = map
+        let repo = map
             .get("repository")
             .and_then(|r| RepoUrl::try_from(r).ok());
 
-        let passphrase = match (map.get("passphrase"), map.get("passcommand")) {
-            (Some(T::String(p)), None) => Some(Passphrase::Passphrase(p.to_owned())),
-            (Some(T::Integer(fd)), None) => Some(Passphrase::FileDescriptor(fd.to_owned() as i32)),
-            (None, Some(T::String(cmd))) => Some(Passphrase::Command(cmd.to_owned())),
-            (Some(_), Some(_)) => {
-                return Err(ConfigError::ExclusiveKeys("passphrase", "passcommand"))
-            }
-            _ => None,
-        };
+        let passphrase = map
+            .get("passphrase")
+            .and_then(|r| Passphrase::try_from(r).ok());
 
         let paths: Vec<PathBuf> = ConfigProperty::from_map(map, "path")?.unwrap_or_default();
 

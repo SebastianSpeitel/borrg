@@ -1,4 +1,4 @@
-use crate::{borrg::*, util::resolve_path};
+use crate::{borg::Passphrase, borrg::*, util::resolve_path};
 use log::{debug, trace, warn, Level};
 use std::{
     io::{BufRead, BufReader, Lines, Read},
@@ -347,14 +347,15 @@ impl BorgCommand {
     }
 
     pub(self) fn passphrase(&mut self, passphrase: &Passphrase) -> &mut Self {
-        match passphrase {
-            Passphrase::Passphrase(ref passphrase) => {
+        match *passphrase {
+            Passphrase::None => {}
+            Passphrase::Phrase(ref passphrase) => {
                 self.env("BORG_PASSPHRASE", passphrase);
             }
             Passphrase::Command(ref command) => {
                 self.env("BORG_PASSCOMMAND", command);
             }
-            Passphrase::FileDescriptor(fd) => {
+            Passphrase::Fd(fd) => {
                 self.env("BORG_PASSPHRASE_FD", fd.to_string());
             }
         }

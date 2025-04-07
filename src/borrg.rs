@@ -4,18 +4,10 @@ use std::time::SystemTime;
 mod repo;
 pub use repo::Repo;
 
-use crate::borg::Compression;
+use crate::borg::{Compression, Passphrase};
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Result<T> = std::result::Result<T, Error>;
-
-#[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Passphrase {
-    Passphrase(String),
-    Command(String),
-    FileDescriptor(i32),
-}
 
 #[derive(Clone, Debug, clap::ValueEnum)]
 #[non_exhaustive]
