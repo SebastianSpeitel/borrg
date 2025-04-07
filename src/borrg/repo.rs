@@ -54,7 +54,7 @@ use std::{fmt::Display, str::FromStr};
 /// ```
 #[derive(Debug, Clone, Eq)]
 pub struct Repo {
-    url: RepoUrl<'static>,
+    pub url: RepoUrl<'static>,
     pub(crate) passphrase: Option<Passphrase>,
 }
 
@@ -77,6 +77,7 @@ impl Display for Repo {
 }
 
 impl PartialEq for Repo {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.url == other.url
     }

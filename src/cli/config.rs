@@ -168,17 +168,14 @@ impl Default for BackupConfig {
 impl TryFrom<&BackupConfig> for Repo {
     type Error = ConfigError;
     fn try_from(config: &BackupConfig) -> Result<Self, Self::Error> {
-        let repository = config
-            .repo
-            .as_ref()
-            .ok_or(ConfigError::MissingKey("repo"))?
-            .as_smol_str();
-
-        let mut repo = repository.parse::<Self>().map_err(ConfigError::Other)?;
-
-        config.passphrase.clone_into(&mut repo.passphrase);
-
-        Ok(repo)
+        Ok(Self {
+            url: config
+                .repo
+                .as_ref()
+                .ok_or(ConfigError::MissingKey("repository"))?
+                .clone(),
+            passphrase: config.passphrase.clone(),
+        })
     }
 }
 
