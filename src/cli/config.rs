@@ -1,10 +1,9 @@
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use log::debug;
 use thiserror::Error;
 
-use crate::borg::{AsRepoUrl, Compression};
+use crate::borg::{Compression, RepoUrl};
 use crate::{Archive, Passphrase, Repo};
 
 #[derive(Debug, Error)]
@@ -55,7 +54,7 @@ struct BackupConfig {
     pub template: Option<String>,
 
     /// Repository to backup to
-    pub repo: Option<Arc<dyn AsRepoUrl>>,
+    pub repo: Option<RepoUrl<'static>>,
 
     /// Passphrase
     pub passphrase: Option<Passphrase>,
@@ -111,7 +110,7 @@ impl BackupConfig {
         match self.repo {
             None => self.repo.clone_from(&template.repo),
             Some(..) => {}
-        };
+        }
 
         // Inherit passphrase
         if self.passphrase.is_none() {
@@ -173,7 +172,7 @@ impl TryFrom<&BackupConfig> for Repo {
             .repo
             .as_ref()
             .ok_or(ConfigError::MissingKey("repo"))?
-            .as_repo_url();
+            .as_smol_str();
 
         let mut repo = repository.parse::<Self>().map_err(ConfigError::Other)?;
 
@@ -194,7 +193,7 @@ impl TryFrom<&BackupConfig> for Archive {
             config.paths.clone()
         };
 
-        let compression = config.compression.clone().unwrap_or_default();
+        let compression = config.compression.unwrap_or_default();
         let pattern_file = config.pattern_file.clone();
         let exclude_file = config.exclude_file.clone();
 
@@ -307,7 +306,7 @@ impl ConfigProperty for BackupConfig {
 
         let repo: Option<_> = map
             .get("repository")
-            .and_then(|r| crate::borg::repo::parse(r).ok());
+            .and_then(|r| RepoUrl::try_from(r).ok());
 
         let passphrase = match (map.get("passphrase"), map.get("passcommand")) {
             (Some(T::String(p)), None) => Some(Passphrase::Passphrase(p.to_owned())),

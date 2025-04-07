@@ -1,5 +1,5 @@
 pub mod compression;
-pub mod repo;
+pub mod repo_url;
 
 pub use compression::Compression;
-pub use repo::AsRepoUrl;
+pub use repo_url::RepoUrl;
