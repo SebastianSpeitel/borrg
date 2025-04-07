@@ -1,27 +1,34 @@
+use std::path::PathBuf;
 use std::sync::Arc;
-use std::{fmt::Display, path::PathBuf};
 
 use log::debug;
+use thiserror::Error;
 
 use crate::borg::{AsRepoUrl, Compression};
 use crate::{Archive, Passphrase, Repo};
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ConfigError {
+    #[error("Invalid type: expected {expected:?}, found {found:?}")]
     TypeError {
         expected: Option<&'static str>,
         found: Option<&'static str>,
     },
+    #[error("Invalid value")]
     ValueError,
+    #[error("Missing key \"{0}\"")]
     MissingKey(&'static str),
+    #[error("Keys {0} and {1} are exclusive")]
     ExclusiveKeys(&'static str, &'static str),
+    #[error("Missing template \"{0}\"")]
     MissingTemplate(String),
-    Keyed {
-        key: String,
-        err: Box<ConfigError>,
-    },
+    #[error("Error at key \"{key}\": {err}")]
+    Keyed { key: String, err: Box<ConfigError> },
+    #[error(transparent)]
     IOError(std::io::Error),
+    #[error(transparent)]
     ParseError(toml::de::Error),
+    #[error("Error: {0}")]
     Other(&'static str),
 }
 
@@ -31,49 +38,6 @@ fn at_key<T: AsRef<str>>(key: T) -> impl FnOnce(ConfigError) -> ConfigError {
         err: Box::new(err),
     }
 }
-
-impl Display for ConfigError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::TypeError {
-                expected: None,
-                found: None,
-            } => write!(f, "Invalid type"),
-            Self::TypeError {
-                expected: Some(expected),
-                found: Some(received),
-            } => write!(f, "Invalid type: expected {expected}, found {received}"),
-            Self::TypeError {
-                expected: Some(expected),
-                found: None,
-            } => write!(f, "Invalid type: expected {expected}"),
-            Self::TypeError {
-                expected: None,
-                found: Some(received),
-            } => write!(f, "Invalid type: found {received}"),
-            Self::ValueError => write!(f, "Invalid value"),
-            Self::MissingKey(key) => write!(f, "Missing key \"{key}\""),
-            Self::ExclusiveKeys(key, other_key) => {
-                write!(f, "{key} and {other_key} are exclusive")
-            }
-            Self::MissingTemplate(name) => write!(f, "Missing template \"{name}\""),
-            Self::Keyed { err, key } => {
-                let mut cur = err.to_owned();
-                let mut path = vec![key.to_owned()];
-                while let Self::Keyed { key, err } = cur.as_ref() {
-                    cur = err;
-                    path.push(key.to_owned());
-                }
-                write!(f, "{cur} at {}", path.join("."))
-            }
-            Self::IOError(err) => err.fmt(f),
-            Self::ParseError(err) => err.fmt(f),
-            Self::Other(msg) => write!(f, "{msg}"),
-        }
-    }
-}
-
-impl std::error::Error for ConfigError {}
 
 impl std::process::Termination for ConfigError {
     fn report(self) -> std::process::ExitCode {
