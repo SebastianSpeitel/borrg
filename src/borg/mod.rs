@@ -18,6 +18,19 @@ impl Default for RemotePath {
     }
 }
 
+impl TryFrom<&toml::Value> for RemotePath {
+    type Error = &'static str;
+
+    #[inline]
+    fn try_from(value: &toml::Value) -> Result<Self, Self::Error> {
+        use toml::Value;
+        match *value {
+            Value::String(ref s) => Ok(Self(s.into())),
+            _ => Err("Invalid remote path"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Passphrase {
     None,
