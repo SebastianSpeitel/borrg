@@ -4,6 +4,9 @@ version = "0.1.1"
 edition = "2021"
 license = "MIT"
 
+[features]
+deprecated = []
+
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 log = "0.4"

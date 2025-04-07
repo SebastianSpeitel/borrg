@@ -135,12 +135,12 @@ impl std::str::FromStr for RepoUrl<'static> {
         let home = Cow::Borrowed(Path::new("~"));
         let root = Cow::Borrowed(Path::new("/"));
 
-        match s {
-            "~" => Ok(Self::Local(home)),
-            "/" => Ok(Self::Local(root)),
+        let url = match s {
+            "~" => Self::Local(home),
+            "/" => Self::Local(root),
             s if s.starts_with("file://") => {
                 let path = Cow::Owned(s[7..].into());
-                Ok(Self::Local(path))
+                Self::Local(path)
             }
             s if s.starts_with("ssh://") => {
                 let mut rest = &s[6..];
@@ -152,17 +152,17 @@ impl std::str::FromStr for RepoUrl<'static> {
                     }
                 };
                 match rest.split_once('/') {
-                    None => Err("missing /"),
-                    Some((host, "/")) => Ok(Self::Ssh {
+                    None => return Err("missing /"),
+                    Some((host, "/")) => Self::Ssh {
                         user,
                         host: host.into(),
                         path: root,
-                    }),
-                    Some((host, path)) => Ok(Self::Ssh {
+                    },
+                    Some((host, path)) => Self::Ssh {
                         user,
                         host: host.into(),
                         path: Cow::Owned(path.into()),
-                    }),
+                    },
                 }
             }
             s if s.starts_with("sftp://") => {
@@ -175,28 +175,46 @@ impl std::str::FromStr for RepoUrl<'static> {
                     }
                 };
                 match rest.split_once('/') {
-                    None => Err("missing /"),
-                    Some((host, "/")) => Ok(Self::Sftp {
+                    None => return Err("missing /"),
+                    Some((host, "/")) => Self::Sftp {
                         user,
                         host: host.into(),
                         path: root,
-                    }),
-                    Some((host, path)) => Ok(Self::Sftp {
+                    },
+                    Some((host, path)) => Self::Sftp {
                         user,
                         host: host.into(),
                         path: Cow::Owned(path.into()),
-                    }),
+                    },
                 }
             }
             s if s.starts_with("rclone:") => match s[7..].split_once(':') {
-                None => Err("invalid rclone url"),
-                Some((remote, path)) => Ok(Self::RClone {
+                None => return Err("invalid rclone url"),
+                Some((remote, path)) => Self::RClone {
                     remote: remote.into(),
                     path: Cow::Owned(path.into()),
-                }),
+                },
             },
-            path => Ok(Self::Local(Cow::Owned(path.into()))),
-        }
+            #[cfg(feature = "deprecated")]
+            path if path.contains(':') => {
+                let (host, path) = path.split_once(':').unwrap();
+                match host.split_once('@') {
+                    None => Self::Ssh {
+                        user: None,
+                        host: host.into(),
+                        path: Cow::Owned(path.into()),
+                    },
+                    Some((user, host)) => Self::Ssh {
+                        user: Some(user.into()),
+                        host: host.into(),
+                        path: Cow::Owned(path.into()),
+                    },
+                }
+            }
+            path => Self::Local(Cow::Owned(path.into())),
+        };
+
+        Ok(url)
     }
 }
 

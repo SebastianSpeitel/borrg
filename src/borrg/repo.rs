@@ -1,5 +1,7 @@
+use crate::borg::RepoUrl;
+
 use super::Passphrase;
-use std::{fmt::Display, path::PathBuf, str::FromStr};
+use std::{fmt::Display, str::FromStr};
 
 /// A repository specifier
 ///
@@ -50,131 +52,30 @@ use std::{fmt::Display, path::PathBuf, str::FromStr};
 /// ```
 #[derive(Debug, Clone, Eq)]
 pub struct Repo {
-    remote: Option<Remote>,
-    pub(crate) path: PathBuf,
+    url: RepoUrl<'static>,
     pub(crate) passphrase: Option<Passphrase>,
 }
 
 impl FromStr for Repo {
     type Err = &'static str;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Some(path) = s.strip_prefix("file://") {
-            return Ok(Self {
-                remote: None,
-                path: path.into(),
-                passphrase: None,
-            });
-        }
-
-        if let Some(repo) = s.strip_prefix("ssh://") {
-            let (remote, path) = repo
-                .split_once('/')
-                .ok_or("Invalid repository specifier (No \"/\" after \"ssh://\")")?;
-            let remote = remote.parse()?;
-            if !path.starts_with('.') && !path.starts_with('~') {
-                return Ok(Self {
-                    remote: Some(remote),
-                    path: PathBuf::from("/").join(path),
-                    passphrase: None,
-                });
-            }
-            return Ok(Self {
-                remote: Some(remote),
-                path: path.into(),
-                passphrase: None,
-            });
-        }
-
-        if let Some((remote, path)) = s.split_once(':') {
-            log::warn!(
-                "Repository specifier without protocol (\"ssh://\") is deprecated and will be removed in borg 2.\n\
-                Please use \"ssh://{remote}/{path}\" instead.\n\
-                Note: borrg will still support the old format by converting it internally."
-            );
-            let remote = remote.parse()?;
-            return Ok(Self {
-                remote: Some(remote),
-                path: path.into(),
-                passphrase: None,
-            });
-        }
-
+        let url = s.parse()?;
         Ok(Self {
-            remote: None,
-            path: s.into(),
+            url,
             passphrase: None,
         })
     }
 }
 
-// impl From<String> for Repo {
-//     fn from(s: String) -> Self {
-//         todo!()
-//     }
-// }
-
 impl Display for Repo {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        if let Some(remote) = &self.remote {
-            write!(f, "ssh://{remote}")?;
-            if self.path.is_relative() {
-                write!(f, "/")?;
-            }
-        }
-
-        write!(f, "{}", self.path.display())
+        self.url.fmt(f)
     }
 }
 
 impl PartialEq for Repo {
     fn eq(&self, other: &Self) -> bool {
-        self.path == other.path && self.remote == other.remote
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct Remote {
-    user: Option<String>,
-    host: String,
-    port: Option<u16>,
-}
-
-impl FromStr for Remote {
-    type Err = &'static str;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut user = None;
-        let mut port = None;
-
-        let mut rest = s;
-        if let Some((u, h)) = rest.split_once('@') {
-            user.replace(u.to_string());
-            rest = h;
-        }
-        if let Some((h, p)) = rest.split_once(':') {
-            port.replace(
-                p.parse()
-                    .map_err(|_| "Invalid remote: Failed to parse port")?,
-            );
-            rest = h;
-        }
-
-        Ok(Self {
-            user,
-            host: rest.to_string(),
-            port,
-        })
-    }
-}
-
-impl Display for Remote {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(user) = &self.user {
-            write!(f, "{user}@")?;
-        }
-        write!(f, "{}", self.host)?;
-        if let Some(port) = &self.port {
-            write!(f, ":{port}")?;
-        }
-        Ok(())
+        self.url == other.url
     }
 }
