@@ -2,7 +2,7 @@ use std::fmt::Display;
 use std::path::PathBuf;
 use std::time::SystemTime;
 mod repo;
-pub use repo::Repo;
+pub use repo::RepoConfig;
 
 use crate::borg::{Compression, Passphrase};
 
@@ -190,7 +190,7 @@ impl Display for Event {
     }
 }
 
-impl Repo {
+impl RepoConfig {
     pub fn passphrase(&mut self, passphrase: Passphrase) -> &mut Self {
         self.passphrase = Some(passphrase);
         self
@@ -266,7 +266,7 @@ impl Borg {
 
     pub fn init_repository<B: Backend>(
         &self,
-        repository: &mut Repo,
+        repository: &mut RepoConfig,
         encryption: Encryption,
         append_only: bool,
         storage_quota: Option<usize>,
@@ -286,7 +286,7 @@ impl Borg {
 
     pub fn create_archive<B: Backend>(
         &self,
-        repository: &Repo,
+        repository: &RepoConfig,
         archive: &Archive,
         on_update: impl Fn(B::Update),
     ) -> Result<()> {
@@ -300,7 +300,7 @@ pub trait Backend {
     /// Initialize an empty repository
     fn init_repository(
         borg: &Borg,
-        repository: &mut Repo,
+        repository: &mut RepoConfig,
         encryption: Encryption,
         append_only: bool,
         storage_quota: Option<usize>,
@@ -311,12 +311,12 @@ pub trait Backend {
     /// Create new archive
     fn create_archive(
         borg: &Borg,
-        repository: &Repo,
+        repository: &RepoConfig,
         archive: &Archive,
         on_update: impl Fn(Self::Update),
     ) -> Result<()>;
 
-    fn repo_info(repository: &Repo) -> Result<RepoInfo>;
+    fn repo_info(repository: &RepoConfig) -> Result<RepoInfo>;
 }
 
 pub struct ByteSize(pub u64);

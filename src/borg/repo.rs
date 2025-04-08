@@ -3,39 +3,43 @@ use std::{borrow::Cow, path::Path};
 use smol_str::SmolStr;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RepoUrl<'a> {
+pub enum Repo<'a> {
     Local(Cow<'a, Path>),
     Ssh {
         user: Option<SmolStr>,
         host: SmolStr,
         path: Cow<'a, Path>,
     },
+    #[cfg(feature = "borg2")]
     Sftp {
         user: Option<SmolStr>,
         host: SmolStr,
         path: Cow<'a, Path>,
     },
+    #[cfg(feature = "borg2")]
     RClone {
         remote: SmolStr,
         path: Cow<'a, Path>,
     },
 }
 
-impl RepoUrl<'_> {
+impl Repo<'_> {
     #[inline]
     #[must_use]
     pub const fn is_local(&self) -> bool {
-        matches!(self, RepoUrl::Local(..))
+        matches!(self, Repo::Local(..))
     }
 
     #[inline]
     #[must_use]
     pub const fn protocol(&self) -> &'static str {
         match *self {
-            RepoUrl::Local(..) => "file",
-            RepoUrl::Ssh { .. } => "ssh",
-            RepoUrl::Sftp { .. } => "sftp",
-            RepoUrl::RClone { .. } => "rclone",
+            Repo::Local(..) => "file",
+            Repo::Ssh { .. } => "ssh",
+            #[cfg(feature = "borg2")]
+            Repo::Sftp { .. } => "sftp",
+            #[cfg(feature = "borg2")]
+            Repo::RClone { .. } => "rclone",
         }
     }
 
@@ -43,10 +47,9 @@ impl RepoUrl<'_> {
     #[must_use]
     pub fn path(&self) -> &Path {
         match self {
-            RepoUrl::Local(path)
-            | RepoUrl::Ssh { path, .. }
-            | RepoUrl::Sftp { path, .. }
-            | RepoUrl::RClone { path, .. } => path,
+            Repo::Local(path) | Repo::Ssh { path, .. } => path,
+            #[cfg(feature = "borg2")]
+            Repo::Sftp { path, .. } | Repo::RClone { path, .. } => path,
         }
     }
 
@@ -54,7 +57,9 @@ impl RepoUrl<'_> {
     #[must_use]
     pub fn host(&self) -> Option<&str> {
         match self {
-            RepoUrl::Ssh { host, .. } | RepoUrl::Sftp { host, .. } => Some(host.as_ref()),
+            Repo::Ssh { host, .. } => Some(host.as_ref()),
+            #[cfg(feature = "borg2")]
+            Repo::Sftp { host, .. } => Some(host.as_ref()),
             _ => None,
         }
     }
@@ -63,10 +68,13 @@ impl RepoUrl<'_> {
     #[must_use]
     pub fn as_smol_str(&self) -> SmolStr {
         let ssh = ['s', 's', 'h', ':', '/', '/'].into_iter();
+        #[cfg(feature = "borg2")]
         let sftp = ['s', 'f', 't', 'p', ':', '/', '/'].into_iter();
+        #[cfg(feature = "borg2")]
         let rclone = ['r', 'c', 'l', 'o', 'n', 'e', ':'].into_iter();
         let at = ['@'];
         let slash = ['/'];
+        #[cfg(feature = "borg2")]
         let colon = [':'];
 
         match self {
@@ -91,6 +99,7 @@ impl RepoUrl<'_> {
                 .chain(slash)
                 .chain(path.to_string_lossy().chars())
                 .collect(),
+            #[cfg(feature = "borg2")]
             Self::Sftp {
                 user: None,
                 host,
@@ -100,6 +109,7 @@ impl RepoUrl<'_> {
                 .chain(slash)
                 .chain(path.to_string_lossy().chars())
                 .collect(),
+            #[cfg(feature = "borg2")]
             Self::Sftp {
                 user: Some(user),
                 host,
@@ -111,6 +121,7 @@ impl RepoUrl<'_> {
                 .chain(slash)
                 .chain(path.to_string_lossy().chars())
                 .collect(),
+            #[cfg(feature = "borg2")]
             Self::RClone { remote, path } => rclone
                 .chain(remote.chars())
                 .chain(colon)
@@ -120,14 +131,14 @@ impl RepoUrl<'_> {
     }
 }
 
-impl core::fmt::Display for RepoUrl<'_> {
+impl core::fmt::Display for Repo<'_> {
     #[inline]
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         self.as_smol_str().fmt(f)
     }
 }
 
-impl std::str::FromStr for RepoUrl<'static> {
+impl std::str::FromStr for Repo<'static> {
     type Err = &'static str;
 
     #[inline]
@@ -165,6 +176,7 @@ impl std::str::FromStr for RepoUrl<'static> {
                     },
                 }
             }
+            #[cfg(feature = "borg2")]
             s if s.starts_with("sftp://") => {
                 let mut rest = &s[7..];
                 let user = match rest.split_once('@') {
@@ -188,6 +200,7 @@ impl std::str::FromStr for RepoUrl<'static> {
                     },
                 }
             }
+            #[cfg(feature = "borg2")]
             s if s.starts_with("rclone:") => match s[7..].split_once(':') {
                 None => return Err("invalid rclone url"),
                 Some((remote, path)) => Self::RClone {
@@ -218,7 +231,7 @@ impl std::str::FromStr for RepoUrl<'static> {
     }
 }
 
-impl TryFrom<&toml::Value> for RepoUrl<'static> {
+impl TryFrom<&toml::Value> for Repo<'static> {
     type Error = &'static str;
 
     #[inline]
@@ -239,9 +252,11 @@ impl TryFrom<&toml::Value> for RepoUrl<'static> {
 
         let user = table.get("user").and_then(Value::as_str);
 
+        #[cfg(feature = "borg2")]
         let remote = table.get("remote").and_then(Value::as_str);
 
         let url = match table.get("protocol") {
+            #[cfg(feature = "borg2")]
             None if remote.is_some() => Self::RClone {
                 remote: remote.unwrap().into(),
                 path: Cow::Owned(path.into()),
@@ -256,11 +271,13 @@ impl TryFrom<&toml::Value> for RepoUrl<'static> {
                 host: host.ok_or("missing host")?.into(),
                 path: Cow::Owned(path.into()),
             },
+            #[cfg(feature = "borg2")]
             Some(v) if v.as_str() == Some("sftp") => Self::Sftp {
                 user: user.map(SmolStr::new),
                 host: host.ok_or("missing host")?.into(),
                 path: Cow::Owned(path.into()),
             },
+            #[cfg(feature = "borg2")]
             Some(v) if v.as_str() == Some("rclone") => Self::RClone {
                 remote: remote.ok_or("missing remote")?.into(),
                 path: Cow::Owned(path.into()),

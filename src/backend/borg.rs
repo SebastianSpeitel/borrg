@@ -414,7 +414,7 @@ impl Backend for BorgWrapper {
 
     fn init_repository(
         borg: &Borg,
-        repository: &mut Repo,
+        repository: &mut RepoConfig,
         encryption: Encryption,
         append_only: bool,
         storage_quota: Option<usize>,
@@ -475,7 +475,7 @@ impl Backend for BorgWrapper {
 
     fn create_archive(
         borg: &Borg,
-        repository: &Repo,
+        repository: &RepoConfig,
         archive: &Archive,
         on_update: impl Fn(Event),
     ) -> Result<()> {
@@ -566,7 +566,7 @@ impl Backend for BorgWrapper {
         Ok(())
     }
 
-    fn repo_info(repository: &Repo) -> Result<RepoInfo> {
+    fn repo_info(repository: &RepoConfig) -> Result<RepoInfo> {
         let mut cmd = BorgCommand::default();
 
         cmd.arg("info");

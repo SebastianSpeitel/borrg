@@ -1,4 +1,4 @@
-use crate::borg::RepoUrl;
+use crate::borg::Repo;
 
 use super::Passphrase;
 use std::{fmt::Display, str::FromStr};
@@ -53,12 +53,12 @@ use std::{fmt::Display, str::FromStr};
 /// assert_eq!(old.to_string(), "ssh://user@host//path/to/repo");
 /// ```
 #[derive(Debug, Clone, Eq)]
-pub struct Repo {
-    pub url: RepoUrl<'static>,
+pub struct RepoConfig {
+    pub url: Repo<'static>,
     pub(crate) passphrase: Option<Passphrase>,
 }
 
-impl FromStr for Repo {
+impl FromStr for RepoConfig {
     type Err = &'static str;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let url = s.parse()?;
@@ -69,14 +69,14 @@ impl FromStr for Repo {
     }
 }
 
-impl Display for Repo {
+impl Display for RepoConfig {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         self.url.fmt(f)
     }
 }
 
-impl PartialEq for Repo {
+impl PartialEq for RepoConfig {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.url == other.url

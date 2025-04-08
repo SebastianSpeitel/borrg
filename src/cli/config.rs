@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use log::debug;
 use thiserror::Error;
 
-use crate::borg::{Compression, Passphrase, RepoUrl};
-use crate::{Archive, Repo};
+use crate::borg::{Compression, Passphrase, Repo};
+use crate::{Archive, RepoConfig};
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -54,7 +54,7 @@ struct BackupConfig {
     pub template: Option<String>,
 
     /// Repository to backup to
-    pub repo: Option<RepoUrl<'static>>,
+    pub repo: Option<Repo<'static>>,
 
     /// Passphrase
     pub passphrase: Option<Passphrase>,
@@ -165,7 +165,7 @@ impl Default for BackupConfig {
     }
 }
 
-impl TryFrom<&BackupConfig> for Repo {
+impl TryFrom<&BackupConfig> for RepoConfig {
     type Error = ConfigError;
     fn try_from(config: &BackupConfig) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -205,10 +205,10 @@ impl TryFrom<&BackupConfig> for Archive {
     }
 }
 
-impl TryFrom<BackupConfig> for (Repo, Archive) {
+impl TryFrom<BackupConfig> for (RepoConfig, Archive) {
     type Error = ConfigError;
     fn try_from(config: BackupConfig) -> Result<Self, ConfigError> {
-        Ok((Repo::try_from(&config)?, Archive::try_from(&config)?))
+        Ok((RepoConfig::try_from(&config)?, Archive::try_from(&config)?))
     }
 }
 
@@ -301,7 +301,7 @@ impl ConfigProperty for BackupConfig {
 
         let repo = map
             .get("repository")
-            .and_then(|r| RepoUrl::try_from(r).ok());
+            .and_then(|r| Repo::try_from(r).ok());
 
         let passphrase = map
             .get("passphrase")
@@ -332,7 +332,7 @@ impl ConfigProperty for BackupConfig {
     }
 }
 
-impl ConfigProperty for Vec<(Repo, Archive)> {
+impl ConfigProperty for Vec<(RepoConfig, Archive)> {
     fn parse(value: &toml::Value) -> Result<Self, ConfigError> {
         let map = value.as_table().ok_or(ConfigError::TypeError {
             expected: Some("table"),
@@ -375,7 +375,7 @@ impl ConfigProperty for Vec<(Repo, Archive)> {
 #[derive(Debug)]
 pub struct Config {
     pub(crate) source: PathBuf,
-    pub backups: Vec<(Repo, Archive)>,
+    pub backups: Vec<(RepoConfig, Archive)>,
 }
 
 impl Config {
@@ -404,7 +404,7 @@ mod tests {
     fn test_empty() {
         let config = "";
         let value = config.parse().unwrap();
-        let result: Result<Vec<(Repo, Archive)>, ConfigError> = ConfigProperty::parse(&value);
+        let result: Result<Vec<(RepoConfig, Archive)>, ConfigError> = ConfigProperty::parse(&value);
 
         assert!(result.is_ok());
         assert!(result.unwrap().is_empty());
@@ -418,7 +418,7 @@ mod tests {
         "#;
 
         let value = config.parse().unwrap();
-        let result: Result<Vec<(Repo, Archive)>, ConfigError> = ConfigProperty::parse(&value);
+        let result: Result<Vec<(RepoConfig, Archive)>, ConfigError> = ConfigProperty::parse(&value);
 
         dbg!(&result);
         assert!(result.is_ok());
@@ -444,7 +444,7 @@ mod tests {
         "#;
 
         let value = config.parse().unwrap();
-        let result: Result<Vec<(Repo, Archive)>, ConfigError> = ConfigProperty::parse(&value);
+        let result: Result<Vec<(RepoConfig, Archive)>, ConfigError> = ConfigProperty::parse(&value);
 
         dbg!(&result);
         assert!(result.is_ok());
@@ -466,7 +466,7 @@ mod tests {
         "#;
 
         let value = config.parse().unwrap();
-        let result: Result<Vec<(Repo, Archive)>, ConfigError> = ConfigProperty::parse(&value);
+        let result: Result<Vec<(RepoConfig, Archive)>, ConfigError> = ConfigProperty::parse(&value);
 
         dbg!(&result);
         assert!(result.is_ok());

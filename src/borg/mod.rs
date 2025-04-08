@@ -3,10 +3,10 @@ use std::os::fd::RawFd;
 use smol_str::SmolStr;
 
 pub mod compression;
-pub mod repo_url;
+pub mod repo;
 
 pub use compression::Compression;
-pub use repo_url::RepoUrl;
+pub use repo::Repo;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RemotePath(pub SmolStr);

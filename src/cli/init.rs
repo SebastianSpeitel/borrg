@@ -21,7 +21,7 @@ pub struct Args {
 
     /// Path to the new repository
     #[arg(value_name = "REPOSITORY")]
-    repository: crate::Repo,
+    repository: crate::RepoConfig,
 }
 
 pub fn init(borg: Borg, config: Config, args: Args) {
@@ -59,7 +59,7 @@ pub fn init(borg: Borg, config: Config, args: Args) {
 
 fn append_backup_config(
     path: &std::path::PathBuf,
-    repo: &crate::Repo,
+    repo: &crate::RepoConfig,
 ) -> Result<(), std::io::Error> {
     use std::fs::OpenOptions;
     use std::io::Write;
