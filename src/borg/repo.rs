@@ -2,6 +2,62 @@ use std::{borrow::Cow, path::Path};
 
 use smol_str::SmolStr;
 
+/// A repository specifier
+///
+/// This enum is used to represent a repository specifier. It can be constructed from a string
+/// using the `FromStr` trait. The string can be in one of the following formats:
+/// - `/path/to/repo`
+/// - `path/to/repo`
+/// - `~/path/to/repo`
+/// - `file:///path/to/repo`
+/// - `file://~/path/to/repo`
+/// - `ssh://user@host:port/path/to/repo`
+/// - `ssh://user@host:port/./path/to/repo`
+/// - `ssh://user@host:port/~/path/to/repo`
+/// - `ssh://host:port/path/to/repo`
+/// - `ssh://host/path/to/repo`
+///
+/// If "borg2" feature is enabled:
+/// - `sftp://user@host:port/path/to/repo`
+/// - `rclone:remote:path/to/repo`
+///
+/// If "deprecated" feature is enabled:
+/// - `user@host:/path/to/repo`
+/// - `host:/path/to/repo`
+///
+/// # Examples
+/// ```rust
+/// use borrg::borg::Repo;
+///
+/// let relative: Repo = "path/to/repo".parse().unwrap();
+/// assert_eq!(relative.to_string(), "path/to/repo");
+///
+/// let absolute: Repo = "/path/to/repo".parse().unwrap();
+/// assert_eq!(absolute.to_string(), "/path/to/repo");
+///
+/// let in_home: Repo = "~/path/to/repo".parse().unwrap();
+/// assert_eq!(in_home.to_string(), "~/path/to/repo");
+///
+/// let using_file: Repo = "file:///path/to/repo".parse().unwrap();
+/// assert_eq!(using_file.to_string(), "/path/to/repo");
+///
+/// let remote_absolute: Repo = "ssh://user@host:22/path/to/repo".parse().unwrap();
+/// assert_eq!(remote_absolute.to_string(), "ssh://user@host:22/path/to/repo");
+///
+/// let remote_relative: Repo = "ssh://user@host:22/./path/to/repo".parse().unwrap();
+/// assert_eq!(remote_relative.to_string(), "ssh://user@host:22/./path/to/repo");
+///
+/// let remote_in_home: Repo = "ssh://user@host:22/~/path/to/repo".parse().unwrap();
+/// assert_eq!(remote_in_home.to_string(), "ssh://user@host:22/~/path/to/repo");
+///
+/// // Deprecated ssh format
+/// let old: Repo = "user@host:/path/to/repo".parse().unwrap();
+/// #[cfg(feature = "deprecated")]
+/// assert_eq!(old.to_string(), "ssh://user@host//path/to/repo");
+/// #[cfg(not(feature = "deprecated"))]
+/// // Treated as local path
+/// assert_eq!(old.to_string(), "user@host:/path/to/repo");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Repo<'a> {
     Local(Cow<'a, Path>),
