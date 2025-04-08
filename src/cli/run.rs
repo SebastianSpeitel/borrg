@@ -25,7 +25,7 @@ pub fn run(mut borg: Borg, config: Config, args: Args) {
     for (idx, backup) in config.backups.into_iter().enumerate() {
         let pb = mp.add(indicatif::ProgressBar::new(u64::MAX));
         let prefix = if multi {
-            format!("[{}::{}] ", &backup.0, &backup.1)
+            format!("[{}::{}] ", &backup.0, &backup.1.name())
         } else {
             String::new()
         };

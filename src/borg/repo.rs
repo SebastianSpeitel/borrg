@@ -82,6 +82,12 @@ pub enum Repo<'a> {
 impl Repo<'_> {
     #[inline]
     #[must_use]
+    pub fn invalid() -> Self {
+        Self::Local(Cow::Borrowed(Path::new("/tmp/i_dont_exist")))
+    }
+
+    #[inline]
+    #[must_use]
     pub const fn is_local(&self) -> bool {
         matches!(self, Repo::Local(..))
     }

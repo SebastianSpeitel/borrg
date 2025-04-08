@@ -1,4 +1,7 @@
-use crate::{borg::Passphrase, borrg::*, util::resolve_path};
+use crate::{
+    borg::{Archive, Passphrase},
+    borrg::*,
+};
 use log::{debug, trace, warn, Level};
 use std::{
     io::{BufRead, BufReader, Lines, Read},
@@ -342,7 +345,7 @@ impl BorgCommand {
                 self.arg(down.to_string());
             }
             _ => {}
-        };
+        }
         self
     }
 
@@ -479,10 +482,6 @@ impl Backend for BorgWrapper {
         archive: &Archive,
         on_update: impl Fn(Event),
     ) -> Result<()> {
-        if archive.paths.is_empty() {
-            return Err("No paths specified".into());
-        }
-
         let mut cmd = BorgCommand::default();
 
         cmd.rate_limit(&borg.rate_limit);
@@ -503,49 +502,7 @@ impl Backend for BorgWrapper {
             cmd.arg("--dry-run");
         }
 
-        if let Some(comment) = &archive.comment {
-            cmd.arg("--comment").arg(comment);
-        }
-
-        cmd.arg("--compression")
-            .arg(archive.compression.as_smol_str());
-
-        if let Some(pattern_file) = &archive.pattern_file {
-            let pattern_file = if pattern_file.is_absolute() {
-                pattern_file.to_owned()
-            } else if let Some(path) = archive.paths.first() {
-                resolve_path(&path.join(pattern_file))
-            } else {
-                return Err("relative pattern file for multiple paths".into());
-            };
-            if !pattern_file.is_file() {
-                return Err(
-                    format!("pattern file does not exist: {}", pattern_file.display()).into(),
-                );
-            }
-            cmd.arg("--patterns-from");
-            cmd.arg(pattern_file);
-        }
-
-        if let Some(exclude_file) = &archive.exclude_file {
-            let exclude_file = if exclude_file.is_absolute() {
-                exclude_file.to_owned()
-            } else if let Some(path) = archive.paths.first() {
-                resolve_path(&path.join(exclude_file))
-            } else {
-                return Err("relative exclude file for multiple paths".into());
-            };
-            if !exclude_file.is_file() {
-                return Err(
-                    format!("exclude file does not exist: {}", exclude_file.display()).into(),
-                );
-            }
-            cmd.arg("--exclude-from");
-            cmd.arg(exclude_file);
-        }
-
-        cmd.arg(format!("{}::{}", repository, archive.name));
-        cmd.args(archive.paths.iter().map(resolve_path));
+        archive.apply_args(&mut cmd)?;
 
         log_command(&cmd);
 

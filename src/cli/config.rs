@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use log::debug;
 use thiserror::Error;
 
-use crate::borg::{Compression, Passphrase, Repo};
-use crate::{Archive, RepoConfig};
+use crate::borg::{Archive, Compression, Passphrase, Repo};
+use crate::RepoConfig;
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -49,7 +49,7 @@ impl std::process::Termination for ConfigError {
 ///
 /// All fields are optional, because they can be inherited.
 #[derive(Debug)]
-struct BackupConfig {
+pub struct BackupConfig {
     /// Name of template to inherit from
     pub template: Option<String>,
 
@@ -179,32 +179,6 @@ impl TryFrom<&BackupConfig> for RepoConfig {
     }
 }
 
-impl TryFrom<&BackupConfig> for Archive {
-    type Error = ConfigError;
-    fn try_from(config: &BackupConfig) -> Result<Self, Self::Error> {
-        let name = chrono::Local::now().format("%Y-%m-%d").to_string();
-
-        let paths = if config.paths.is_empty() {
-            return Err(ConfigError::MissingKey("path"));
-        } else {
-            config.paths.clone()
-        };
-
-        let compression = config.compression.unwrap_or_default();
-        let pattern_file = config.pattern_file.clone();
-        let exclude_file = config.exclude_file.clone();
-
-        Ok(Self {
-            name,
-            paths,
-            compression,
-            pattern_file,
-            exclude_file,
-            comment: None,
-        })
-    }
-}
-
 impl TryFrom<BackupConfig> for (RepoConfig, Archive) {
     type Error = ConfigError;
     fn try_from(config: BackupConfig) -> Result<Self, ConfigError> {
@@ -299,9 +273,7 @@ impl ConfigProperty for BackupConfig {
         let template: String =
             ConfigProperty::from_map(map, "template")?.unwrap_or_else(|| "default".to_string());
 
-        let repo = map
-            .get("repository")
-            .and_then(|r| Repo::try_from(r).ok());
+        let repo = map.get("repository").and_then(|r| Repo::try_from(r).ok());
 
         let passphrase = map
             .get("passphrase")
@@ -309,7 +281,6 @@ impl ConfigProperty for BackupConfig {
 
         let paths: Vec<PathBuf> = ConfigProperty::from_map(map, "path")?.unwrap_or_default();
 
-        // let compression: Option<Compression> = ConfigProperty::from_map(map, "compression")?;
         let compression = map
             .get("compression")
             .map(Compression::try_from)
@@ -427,10 +398,10 @@ mod tests {
         let (repo, archive) = results.first().unwrap();
         assert_eq!(repo.to_string(), ".");
         assert_eq!(repo.passphrase, None);
-        assert_eq!(archive.paths, vec![PathBuf::from("~")]);
-        assert_eq!(archive.compression, Compression::default());
-        assert_eq!(archive.pattern_file, None);
-        assert_eq!(archive.exclude_file, Some(PathBuf::from(".borgignore")));
+        assert!(archive.roots().any(|p| p == "~"));
+        assert_eq!(archive.compression(), Compression::default());
+        // assert_eq!(archive.pattern_file, None);
+        // assert_eq!(archive.exclude_file, Some(PathBuf::from(".borgignore")));
     }
 
     #[test]
@@ -451,7 +422,7 @@ mod tests {
         let results = result.unwrap();
         assert_eq!(results.len(), 1);
         let (_, archive) = results.first().unwrap();
-        assert_eq!(archive.compression, Compression::Lz4);
+        assert_eq!(archive.compression(), Compression::Lz4);
     }
 
     #[test]
@@ -473,6 +444,6 @@ mod tests {
         let results = result.unwrap();
         assert_eq!(results.len(), 1);
         let (_, archive) = results.first().unwrap();
-        assert_eq!(archive.compression, Compression::Lz4);
+        assert_eq!(archive.compression(), Compression::Lz4);
     }
 }

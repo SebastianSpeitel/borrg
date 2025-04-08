@@ -4,7 +4,7 @@ use std::time::SystemTime;
 mod repo;
 pub use repo::RepoConfig;
 
-use crate::borg::{Compression, Passphrase};
+use crate::borg::{Archive, Passphrase};
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Result<T> = std::result::Result<T, Error>;
@@ -32,66 +32,6 @@ impl Display for Encryption {
             Self::Authenticated => write!(f, "authenticated"),
             Self::AuthenticatedBlake2 => write!(f, "authenticated-blake2"),
         }
-    }
-}
-
-#[derive(Debug)]
-pub struct Archive {
-    pub(crate) name: String,
-    pub(crate) paths: Vec<PathBuf>,
-    pub(crate) compression: Compression,
-    pub(crate) pattern_file: Option<PathBuf>,
-    pub(crate) exclude_file: Option<PathBuf>,
-    pub(crate) comment: Option<String>,
-}
-
-impl Archive {
-    pub const fn new(name: String) -> Self {
-        Self {
-            name,
-            paths: Vec::new(),
-            compression: Compression::None,
-            pattern_file: None,
-            exclude_file: None,
-            comment: None,
-        }
-    }
-
-    pub fn today() -> Self {
-        let now = chrono::Local::now();
-        let name = now.format("%Y-%m-%d").to_string();
-        Archive::new(name)
-    }
-
-    pub fn path(&mut self, path: PathBuf) -> &mut Self {
-        self.paths.push(path);
-        self
-    }
-
-    pub fn compression(&mut self, compression: Compression) -> &mut Self {
-        self.compression = compression;
-        self
-    }
-
-    pub fn pattern_file(&mut self, pattern_file: PathBuf) -> &mut Self {
-        self.pattern_file.replace(pattern_file);
-        self
-    }
-
-    pub fn exclude_file(&mut self, exclude_file: PathBuf) -> &mut Self {
-        self.exclude_file.replace(exclude_file);
-        self
-    }
-
-    pub fn comment(&mut self, comment: String) -> &mut Self {
-        self.comment.replace(comment);
-        self
-    }
-}
-
-impl Display for Archive {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name)
     }
 }
 

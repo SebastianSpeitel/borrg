@@ -2,9 +2,11 @@ use std::os::fd::RawFd;
 
 use smol_str::SmolStr;
 
+pub mod archive;
 pub mod compression;
 pub mod repo;
 
+pub use archive::Archive;
 pub use compression::Compression;
 pub use repo::Repo;
 
