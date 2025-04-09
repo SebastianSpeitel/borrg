@@ -211,15 +211,30 @@ impl<R: Read> Iterator for Events<R> {
 }
 
 fn log_command(cmd: &Command) {
-    let command = format!(
-        "{} {}",
-        cmd.get_program().to_string_lossy(),
-        cmd.get_args()
-            .map(|a| format!("\"{}\"", a.to_string_lossy()))
-            .collect::<Vec<_>>()
-            .join(" ")
-    );
-    debug!("Executing command: {command}");
+    debug!("Executing command: {cmd:?}");
+    // let command = format!(
+    //     "{} {}",
+    //     cmd.get_program().to_string_lossy(),
+    //     cmd.get_args()
+    //         .map(|a| format!("\"{}\"", a.to_string_lossy()))
+    //         .collect::<Vec<_>>()
+    //         .join(" ")
+    // );
+    // let env = cmd
+    //     .get_envs()
+    //     .map(|(k, v)| {
+    //         format!(
+    //             "{}={:?}",
+    //             k.to_string_lossy(),
+    //             v.map(OsStr::to_string_lossy)
+    //         )
+    //     })
+    //     .collect::<Vec<_>>()
+    //     .join(" ");
+    // debug!(
+    //     "Executing command: {command} in {:#?} with {env}",
+    //     cmd.get_current_dir()
+    // );
 }
 
 impl TryFrom<serde_json::Value> for RepoInfo {
