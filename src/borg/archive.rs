@@ -1,5 +1,7 @@
 use smol_str::SmolStr;
 
+use crate::util::PathResolveExt;
+
 use super::{Compression, Repo};
 
 #[derive(Debug, Clone)]
@@ -52,12 +54,12 @@ impl Archive {
         command.arg("--compression");
         command.arg(self.compression.as_smol_str());
 
-        let mut paths = Vec::new();
+        let mut roots = Vec::new();
 
         for opt in &self.options {
             match opt {
                 Opt::Root(r) => {
-                    paths.push(r);
+                    roots.push(r);
                 }
                 Opt::Exclude(excl) => {
                     command.arg("--exclude");
@@ -95,7 +97,11 @@ impl Archive {
             command.arg(self.name.as_str());
         }
 
-        command.args(paths);
+        if let Some(root) = roots.first() {
+            command.current_dir(root.resolve());
+        }
+
+        command.args(roots);
 
         Ok(())
     }
@@ -108,6 +114,11 @@ impl TryFrom<&toml::Value> for Archive {
     fn try_from(value: &toml::Value) -> Result<Self, Self::Error> {
         use toml::Value;
         let tab = value.as_table().ok_or("Invalid archive")?;
+
+        let repo = match tab.get("repo") {
+            None => return Err("Missing repository"),
+            Some(v) => Repo::try_from(v)?,
+        };
 
         let name = match tab.get("name") {
             None => return Err("Missing archive name"),
@@ -124,7 +135,7 @@ impl TryFrom<&toml::Value> for Archive {
         let options = parse_options(tab)?;
 
         Ok(Self {
-            repo: Repo::invalid(),
+            repo,
             name: name.into(),
             comment,
             options,

@@ -1,6 +1,7 @@
 use borrg::Borg;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
+use util::PathResolveExt;
 mod util;
 
 /// Borrg wrapper
@@ -39,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let cli = Cli::parse();
 
-    let config_path = util::resolve_path(&cli.config);
+    let config_path = cli.config.resolve();
     let config = borrg::cli::Config::load(&config_path);
 
     let config = match config {
