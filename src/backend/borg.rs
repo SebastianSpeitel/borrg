@@ -509,12 +509,13 @@ impl Backend for BorgWrapper {
 
         // TODO: make this configurable
         cmd.progress();
-        cmd.arg("--stats");
         // cmd.arg("--list");
         cmd.arg("--log-json");
 
         if borg.dry_run {
             cmd.arg("--dry-run");
+        } else {
+            cmd.arg("--stats");
         }
 
         archive.apply_args(&mut cmd)?;
