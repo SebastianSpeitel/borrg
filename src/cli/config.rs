@@ -399,7 +399,7 @@ mod tests {
         assert_eq!(repo.to_string(), ".");
         assert_eq!(repo.passphrase, None);
         assert!(archive.roots().any(|p| p == "~"));
-        assert_eq!(archive.compression(), Compression::default());
+        assert!(archive.compression().is_none());
         // assert_eq!(archive.pattern_file, None);
         // assert_eq!(archive.exclude_file, Some(PathBuf::from(".borgignore")));
     }
@@ -422,7 +422,7 @@ mod tests {
         let results = result.unwrap();
         assert_eq!(results.len(), 1);
         let (_, archive) = results.first().unwrap();
-        assert_eq!(archive.compression(), Compression::Lz4);
+        assert_eq!(archive.compression().unwrap(), Compression::Lz4);
     }
 
     #[test]
@@ -444,6 +444,6 @@ mod tests {
         let results = result.unwrap();
         assert_eq!(results.len(), 1);
         let (_, archive) = results.first().unwrap();
-        assert_eq!(archive.compression(), Compression::Lz4);
+        assert_eq!(archive.compression().unwrap(), Compression::Lz4);
     }
 }

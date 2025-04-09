@@ -8,9 +8,7 @@ use super::{Compression, Repo};
 pub struct Archive {
     repo: Repo<'static>,
     name: SmolStr,
-    pub comment: Option<SmolStr>,
-    options: Vec<Opt>,
-    compression: Compression,
+    options: Options,
 }
 
 impl Archive {
@@ -19,9 +17,7 @@ impl Archive {
         Self {
             repo,
             name: name.as_ref().into(),
-            comment: None,
-            options: Vec::new(),
-            compression: Compression::default(),
+            options: Options::default(),
         }
     }
 
@@ -33,7 +29,7 @@ impl Archive {
 
     #[inline]
     pub fn roots(&self) -> impl Iterator<Item = &SmolStr> {
-        self.options.iter().filter_map(|opt| match opt {
+        self.options.0.iter().filter_map(|opt| match opt {
             Opt::Root(root) => Some(root),
             _ => None,
         })
@@ -41,22 +37,18 @@ impl Archive {
 
     #[inline]
     #[must_use]
-    pub const fn compression(&self) -> Compression {
-        self.compression
+    pub fn compression(&self) -> Option<Compression> {
+        self.options.0.iter().rev().find_map(|opt| match *opt {
+            Opt::Compression(c) => Some(c),
+            _ => None,
+        })
     }
 
     #[inline]
     pub fn apply_args(&self, command: &mut std::process::Command) -> Result<(), &'static str> {
-        if let Some(comm) = &self.comment {
-            command.arg("--comment");
-            command.arg(comm);
-        }
-        command.arg("--compression");
-        command.arg(self.compression.as_smol_str());
-
         let mut roots = Vec::new();
 
-        for opt in &self.options {
+        for opt in &self.options.0 {
             match opt {
                 Opt::Root(r) => {
                     roots.push(r);
@@ -85,6 +77,14 @@ impl Archive {
                 }
                 Opt::OneFileSystem => {
                     command.arg("--one-file-system");
+                }
+                Opt::Comment(comment) => {
+                    command.arg("--comment");
+                    command.arg(comment);
+                }
+                Opt::Compression(compression) => {
+                    command.arg("--compression");
+                    command.arg(compression.as_smol_str());
                 }
             }
         }
@@ -126,23 +126,18 @@ impl TryFrom<&toml::Value> for Archive {
             _ => return Err("Invalid archive name"),
         };
 
-        let comment = match tab.get("comment") {
-            None => None,
-            Some(Value::String(comment)) => Some(comment.into()),
-            _ => return Err("Invalid archive comment"),
-        };
-
-        let options = parse_options(tab)?;
+        let options = tab.try_into()?;
 
         Ok(Self {
             repo,
             name: name.into(),
-            comment,
             options,
-            compression: Compression::default(),
         })
     }
 }
+
+#[derive(Debug, Clone, Default)]
+pub struct Options(Vec<Opt>);
 
 #[derive(Debug, Clone)]
 enum Opt {
@@ -154,65 +149,81 @@ enum Opt {
     ExcludeCaches,
     ExcludeNoDump,
     OneFileSystem,
+    Comment(SmolStr),
+    Compression(Compression),
 }
 
-fn parse_options(tab: &toml::value::Table) -> Result<Vec<Opt>, &'static str> {
-    use toml::Value;
-    let mut opts = Vec::with_capacity(tab.len());
+impl TryFrom<&toml::Table> for Options {
+    type Error = &'static str;
 
-    fn unpack(
-        opts: &mut Vec<Opt>,
-        val: &Value,
-        f: impl Fn(SmolStr) -> Opt,
-    ) -> Result<(), &'static str> {
-        match val {
-            Value::String(s) => {
-                opts.push(f(s.into()));
-            }
-            Value::Array(arr) => {
-                for v in arr {
-                    opts.push(f(v.as_str().ok_or("expected string")?.into()));
+    #[inline]
+    fn try_from(tab: &toml::Table) -> Result<Self, Self::Error> {
+        use toml::Value;
+        let mut opts = Vec::with_capacity(tab.len());
+
+        fn unpack(
+            opts: &mut Vec<Opt>,
+            val: &Value,
+            f: impl Fn(SmolStr) -> Opt,
+        ) -> Result<(), &'static str> {
+            match val {
+                Value::String(s) => {
+                    opts.push(f(s.into()));
                 }
+                Value::Array(arr) => {
+                    for v in arr {
+                        opts.push(f(v.as_str().ok_or("expected string")?.into()));
+                    }
+                }
+                _ => return Err("expected string or array of strings"),
             }
-            _ => return Err("expected string or array of strings"),
+            Ok(())
         }
-        Ok(())
-    }
 
-    for (k, v) in tab {
-        match (k.as_str(), v) {
-            ("root" | "path", val) => {
-                unpack(&mut opts, val, Opt::Root)?;
+        for (k, v) in tab {
+            match (k.as_str(), v) {
+                ("root" | "path", val) => {
+                    unpack(&mut opts, val, Opt::Root)?;
+                }
+                ("exclude", val) => {
+                    unpack(&mut opts, val, Opt::Exclude)?;
+                }
+                ("exclude_from", val) => {
+                    unpack(&mut opts, val, Opt::ExcludeFrom)?;
+                }
+                ("pattern", val) => {
+                    unpack(&mut opts, val, Opt::Pattern)?;
+                }
+                ("pattern_from", val) => {
+                    unpack(&mut opts, val, Opt::PatternFrom)?;
+                }
+                ("exclude_caches", Value::Boolean(true)) => {
+                    opts.push(Opt::ExcludeCaches);
+                }
+                ("exclude_nodump", Value::Boolean(true)) => {
+                    opts.push(Opt::ExcludeNoDump);
+                }
+                ("one_file_system", Value::Boolean(true)) => {
+                    opts.push(Opt::OneFileSystem);
+                }
+                (
+                    "exclude_caches" | "exclude_nodump" | "one_file_system",
+                    Value::Boolean(false),
+                ) => {
+                    // Allowed but ignored
+                }
+                ("comment", Value::String(s)) => {
+                    opts.push(Opt::Comment(s.into()));
+                }
+                ("compression", val) => {
+                    opts.push(Opt::Compression(Compression::try_from(val)?));
+                }
+                _ => return Err("Invalid archive option"),
             }
-            ("exclude", val) => {
-                unpack(&mut opts, val, Opt::Exclude)?;
-            }
-            ("exclude_from", val) => {
-                unpack(&mut opts, val, Opt::ExcludeFrom)?;
-            }
-            ("pattern", val) => {
-                unpack(&mut opts, val, Opt::Pattern)?;
-            }
-            ("pattern_from", val) => {
-                unpack(&mut opts, val, Opt::PatternFrom)?;
-            }
-            ("exclude_caches", Value::Boolean(true)) => {
-                opts.push(Opt::ExcludeCaches);
-            }
-            ("exclude_nodump", Value::Boolean(true)) => {
-                opts.push(Opt::ExcludeNoDump);
-            }
-            ("one_file_system", Value::Boolean(true)) => {
-                opts.push(Opt::OneFileSystem);
-            }
-            ("exclude_caches" | "exclude_nodump" | "one_file_system", Value::Boolean(false)) => {
-                // Allowed but ignored
-            }
-            _ => return Err("Invalid archive option"),
         }
-    }
 
-    Ok(opts)
+        Ok(Self(opts))
+    }
 }
 
 impl TryFrom<&crate::cli::BackupConfig> for Archive {
@@ -225,12 +236,14 @@ impl TryFrom<&crate::cli::BackupConfig> for Archive {
             .as_ref()
             .ok_or(crate::cli::ConfigError::Other("missing repo"))?;
 
-        let compression = config.compression.unwrap_or_default();
-
-        let mut options = Vec::with_capacity(config.paths.len() + 2);
+        let mut options = Vec::with_capacity(config.paths.len() + 3);
 
         for path in &config.paths {
             options.push(Opt::Root(path.to_string_lossy().into()));
+        }
+
+        if let Some(c) = config.compression {
+            options.push(Opt::Compression(c));
         }
 
         if let Some(ref pattern_file) = config.pattern_file {
@@ -244,9 +257,7 @@ impl TryFrom<&crate::cli::BackupConfig> for Archive {
         Ok(Self {
             repo: repo.to_owned(),
             name: name.into(),
-            compression,
-            options,
-            comment: None,
+            options: Options(options),
         })
     }
 }
