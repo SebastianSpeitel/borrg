@@ -5,7 +5,10 @@ edition = "2021"
 license = "MIT"
 
 [features]
+default = ["borg1", "borg2"]
 deprecated = []
+borg1 = []
+borg2 = []
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
