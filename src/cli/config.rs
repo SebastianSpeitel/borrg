@@ -124,7 +124,7 @@ impl TryFrom<&toml::Value> for PartialBackup {
             _ => return Err("Invalid template"),
         };
 
-        let archive_name = match tab.get("archive_name_format") {
+        let archive_name = match tab.get("archive_name") {
             None => None,
             Some(Value::String(name)) => Some(name.into()),
             _ => return Err("Invalid archive name"),
