@@ -4,10 +4,13 @@ use smol_str::SmolStr;
 
 pub mod archive;
 pub mod compression;
+mod options;
 pub mod repo;
 
 pub use archive::Archive;
 pub use compression::Compression;
+use options::Opt;
+pub use options::Options;
 pub use repo::Repo;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

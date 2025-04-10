@@ -4,8 +4,7 @@ use std::path::PathBuf;
 use smol_str::SmolStr;
 use thiserror::Error;
 
-use crate::borg::archive::Options;
-use crate::borg::{Archive, Repo};
+use crate::borg::{Archive, Options, Repo};
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
