@@ -5,9 +5,9 @@ edition = "2021"
 license = "MIT"
 
 [features]
-default = ["borg1", "borg2"]
+default = ["borg1-compat", "borg2"]
 deprecated = []
-borg1 = []
+borg1-compat = []
 borg2 = []
 
 [dependencies]

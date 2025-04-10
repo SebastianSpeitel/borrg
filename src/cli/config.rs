@@ -85,7 +85,7 @@ impl PartialBackup {
             (Some(n), ..) => n,
             (None, Some(n)) => n.clone(),
             _ => {
-                if cfg!(feature = "borg1") {
+                if cfg!(feature = "borg1-compat") {
                     SmolStr::new_static("{hostname}-{now:%Y-%m-%dT%H:%M:%S.%f}")
                 } else {
                     SmolStr::new_static("{hostname}")

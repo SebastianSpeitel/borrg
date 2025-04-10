@@ -112,7 +112,7 @@ impl Archive {
 
         command.env("BORG_REPO", self.repo.as_smol_str());
 
-        if cfg!(feature = "borg1") {
+        if cfg!(feature = "borg1-compat") {
             command.arg(format!("::{}", self.name.as_str()));
         } else {
             command.arg(self.name.as_str());
