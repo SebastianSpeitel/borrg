@@ -2,13 +2,13 @@ use smol_str::SmolStr;
 
 use crate::util::PathResolveExt;
 
-use super::{Compression, Repo};
+use super::{Compression, Passphrase, Repo};
 
 #[derive(Debug, Clone)]
 pub struct Archive {
-    repo: Repo<'static>,
-    name: SmolStr,
-    options: Options,
+    pub(crate) repo: Repo<'static>,
+    pub(crate) name: SmolStr,
+    pub(crate) options: Options,
 }
 
 impl Archive {
@@ -40,6 +40,15 @@ impl Archive {
     pub fn compression(&self) -> Option<Compression> {
         self.options.0.iter().rev().find_map(|opt| match *opt {
             Opt::Compression(c) => Some(c),
+            _ => None,
+        })
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn passphrase(&self) -> Option<&Passphrase> {
+        self.options.0.iter().rev().find_map(|opt| match *opt {
+            Opt::Passphrase(ref p) => Some(p),
             _ => None,
         })
     }
@@ -86,6 +95,18 @@ impl Archive {
                     command.arg("--compression");
                     command.arg(compression.as_smol_str());
                 }
+                Opt::Passphrase(passphrase) => match *passphrase {
+                    Passphrase::None => {}
+                    Passphrase::Phrase(ref passphrase) => {
+                        command.env("BORG_PASSPHRASE", passphrase);
+                    }
+                    Passphrase::Command(ref passcommand) => {
+                        command.env("BORG_PASSCOMMAND", passcommand);
+                    }
+                    Passphrase::Fd(fd) => {
+                        command.env("BORG_PASSPHRASE_FD", fd.to_string());
+                    }
+                },
             }
         }
 
@@ -136,8 +157,44 @@ impl TryFrom<&toml::Value> for Archive {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct Options(Vec<Opt>);
+
+impl Options {
+    #[inline]
+    #[must_use]
+    pub fn has_root(&self) -> bool {
+        self.0.iter().any(|opt| matches!(opt, Opt::Root(_)))
+    }
+
+    #[inline]
+    pub fn root(&mut self, root: impl Into<SmolStr>) {
+        self.0.push(Opt::Root(root.into()));
+    }
+
+    #[inline]
+    pub fn exclude_from(&mut self, exclude: impl Into<SmolStr>) {
+        self.0.push(Opt::ExcludeFrom(exclude.into()));
+    }
+}
+
+impl core::fmt::Debug for Options {
+    #[inline]
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl core::ops::Add for Options {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: Self) -> Self::Output {
+        let mut opts = self.0;
+        opts.extend(rhs.0);
+        Self(opts)
+    }
+}
 
 #[derive(Debug, Clone)]
 enum Opt {
@@ -151,6 +208,7 @@ enum Opt {
     OneFileSystem,
     Comment(SmolStr),
     Compression(Compression),
+    Passphrase(Passphrase),
 }
 
 impl TryFrom<&toml::Table> for Options {
@@ -206,58 +264,22 @@ impl TryFrom<&toml::Table> for Options {
                 ("one_file_system", Value::Boolean(true)) => {
                     opts.push(Opt::OneFileSystem);
                 }
-                (
-                    "exclude_caches" | "exclude_nodump" | "one_file_system",
-                    Value::Boolean(false),
-                ) => {
-                    // Allowed but ignored
-                }
                 ("comment", Value::String(s)) => {
                     opts.push(Opt::Comment(s.into()));
                 }
                 ("compression", val) => {
                     opts.push(Opt::Compression(Compression::try_from(val)?));
                 }
-                _ => return Err("Invalid archive option"),
+                ("passphrase", val) => {
+                    opts.push(Opt::Passphrase(Passphrase::try_from(val)?));
+                }
+                ("passcommand", Value::String(s)) => {
+                    opts.push(Opt::Passphrase(Passphrase::Command(s.into())));
+                }
+                _ => {}
             }
         }
 
         Ok(Self(opts))
-    }
-}
-
-impl TryFrom<&crate::cli::BackupConfig> for Archive {
-    type Error = crate::cli::ConfigError;
-    fn try_from(config: &crate::cli::BackupConfig) -> Result<Self, Self::Error> {
-        let name = chrono::Local::now().format("%Y-%m-%d").to_string();
-
-        let repo = config
-            .repo
-            .as_ref()
-            .ok_or(crate::cli::ConfigError::Other("missing repo"))?;
-
-        let mut options = Vec::with_capacity(config.paths.len() + 3);
-
-        for path in &config.paths {
-            options.push(Opt::Root(path.to_string_lossy().into()));
-        }
-
-        if let Some(c) = config.compression {
-            options.push(Opt::Compression(c));
-        }
-
-        if let Some(ref pattern_file) = config.pattern_file {
-            options.push(Opt::PatternFrom(pattern_file.to_string_lossy().into()));
-        }
-
-        if let Some(ref exclude_file) = config.exclude_file {
-            options.push(Opt::ExcludeFrom(exclude_file.to_string_lossy().into()));
-        }
-
-        Ok(Self {
-            repo: repo.to_owned(),
-            name: name.into(),
-            options: Options(options),
-        })
     }
 }

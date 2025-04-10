@@ -1,5 +1,5 @@
 use crate::{
-    borg::{Archive, Passphrase},
+    borg::{Archive, Passphrase, Repo},
     borrg::*,
 };
 use log::{debug, trace, warn, Level};
@@ -432,7 +432,8 @@ impl Backend for BorgWrapper {
 
     fn init_repository(
         borg: &Borg,
-        repository: &mut RepoConfig,
+        repo: &Repo,
+        passphrase: &Passphrase,
         encryption: Encryption,
         append_only: bool,
         storage_quota: Option<usize>,
@@ -463,11 +464,9 @@ impl Backend for BorgWrapper {
         cmd.arg("--encryption");
         cmd.arg(encryption.to_string());
 
-        cmd.arg(repository.to_string());
+        cmd.arg(repo.to_string());
 
-        if let Some(ref pass) = repository.passphrase {
-            cmd.passphrase(pass);
-        }
+        cmd.passphrase(passphrase);
 
         // Don't let borg ask if the passphrase should be displayed
         cmd.env("BORG_DISPLAY_PASSPHRASE", "no");
@@ -491,19 +490,10 @@ impl Backend for BorgWrapper {
         Ok(())
     }
 
-    fn create_archive(
-        borg: &Borg,
-        repository: &RepoConfig,
-        archive: &Archive,
-        on_update: impl Fn(Event),
-    ) -> Result<()> {
+    fn create_archive(borg: &Borg, archive: &Archive, on_update: impl Fn(Event)) -> Result<()> {
         let mut cmd = BorgCommand::default();
 
         cmd.rate_limit(&borg.rate_limit);
-
-        if let Some(pass) = &repository.passphrase {
-            cmd.passphrase(pass);
-        }
 
         cmd.arg("create");
 
@@ -539,14 +529,12 @@ impl Backend for BorgWrapper {
         Ok(())
     }
 
-    fn repo_info(repository: &RepoConfig) -> Result<RepoInfo> {
+    fn repo_info(repository: &Repo, passphrase: &Passphrase) -> Result<RepoInfo> {
         let mut cmd = BorgCommand::default();
 
         cmd.arg("info");
 
-        if let Some(pass) = &repository.passphrase {
-            cmd.passphrase(pass);
-        }
+        cmd.passphrase(passphrase);
 
         cmd.arg("--json");
         cmd.arg(repository.to_string());

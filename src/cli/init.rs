@@ -1,5 +1,5 @@
 use super::*;
-use crate::{backend, Borg, Encryption};
+use crate::{backend, borg::Repo, Borg, Encryption};
 
 #[derive(Args, Debug)]
 pub struct Args {
@@ -21,23 +21,24 @@ pub struct Args {
 
     /// Path to the new repository
     #[arg(value_name = "REPOSITORY")]
-    repository: crate::RepoConfig,
+    repository: crate::borg::Repo<'static>,
 }
 
 pub fn init(borg: Borg, config: Config, args: Args) {
-    let mut repo = args.repository;
+    let repo = args.repository;
 
     // Search matching backup in config
-    let backup = config.backups.iter().map(|(r, _)| r).find(|r| r == &&repo);
+    let backup = config.backups.iter().find(|b| b.repo == repo);
 
-    let mut exists_already = false;
-    if let Some(backup) = backup {
-        repo.passphrase = backup.passphrase.clone();
-        exists_already = true;
-    }
+    let passphrase = backup
+        .and_then(|b| b.passphrase())
+        .unwrap_or(&crate::borg::Passphrase::None);
+
+    let exists_already = backup.is_some();
 
     if let Err(e) = borg.init_repository::<backend::borg::BorgWrapper>(
-        &mut repo,
+        &repo,
+        passphrase,
         args.encryption,
         args.append_only,
         args.storage_quota,
@@ -57,10 +58,7 @@ pub fn init(borg: Borg, config: Config, args: Args) {
     }
 }
 
-fn append_backup_config(
-    path: &std::path::PathBuf,
-    repo: &crate::RepoConfig,
-) -> Result<(), std::io::Error> {
+fn append_backup_config(path: &std::path::PathBuf, repo: &Repo) -> Result<(), std::io::Error> {
     use std::fs::OpenOptions;
     use std::io::Write;
 

@@ -1,10 +1,8 @@
 use std::fmt::Display;
 use std::path::PathBuf;
 use std::time::SystemTime;
-mod repo;
-pub use repo::RepoConfig;
 
-use crate::borg::{Archive, Passphrase};
+use crate::borg::{Archive, Passphrase, Repo};
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Result<T> = std::result::Result<T, Error>;
@@ -130,26 +128,6 @@ impl Display for Event {
     }
 }
 
-impl RepoConfig {
-    pub fn passphrase(&mut self, passphrase: Passphrase) -> &mut Self {
-        self.passphrase = Some(passphrase);
-        self
-    }
-
-    pub fn create_archive<B: Backend>(
-        &self,
-        borg: &Borg,
-        archive: &Archive,
-        on_update: impl Fn(B::Update),
-    ) -> Result<()> {
-        B::create_archive(borg, self, archive, on_update)
-    }
-
-    pub fn info<B: Backend>(&self) -> Result<RepoInfo> {
-        B::repo_info(self)
-    }
-}
-
 #[derive(Default, Debug)]
 pub struct RateLimit {
     pub up: Option<u64>,
@@ -206,7 +184,8 @@ impl Borg {
 
     pub fn init_repository<B: Backend>(
         &self,
-        repository: &mut RepoConfig,
+        repo: &Repo,
+        passphrase: &Passphrase,
         encryption: Encryption,
         append_only: bool,
         storage_quota: Option<usize>,
@@ -215,7 +194,8 @@ impl Borg {
     ) -> Result<()> {
         B::init_repository(
             self,
-            repository,
+            repo,
+            passphrase,
             encryption,
             append_only,
             storage_quota,
@@ -226,11 +206,10 @@ impl Borg {
 
     pub fn create_archive<B: Backend>(
         &self,
-        repository: &RepoConfig,
         archive: &Archive,
         on_update: impl Fn(B::Update),
     ) -> Result<()> {
-        B::create_archive(self, repository, archive, on_update)
+        B::create_archive(self, archive, on_update)
     }
 }
 
@@ -240,7 +219,8 @@ pub trait Backend {
     /// Initialize an empty repository
     fn init_repository(
         borg: &Borg,
-        repository: &mut RepoConfig,
+        repo: &Repo,
+        passphrase: &Passphrase,
         encryption: Encryption,
         append_only: bool,
         storage_quota: Option<usize>,
@@ -251,12 +231,11 @@ pub trait Backend {
     /// Create new archive
     fn create_archive(
         borg: &Borg,
-        repository: &RepoConfig,
         archive: &Archive,
         on_update: impl Fn(Self::Update),
     ) -> Result<()>;
 
-    fn repo_info(repository: &RepoConfig) -> Result<RepoInfo>;
+    fn repo_info(repository: &Repo, passphrase: &Passphrase) -> Result<RepoInfo>;
 }
 
 pub struct ByteSize(pub u64);

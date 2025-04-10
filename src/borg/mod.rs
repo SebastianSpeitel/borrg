@@ -33,8 +33,9 @@ impl TryFrom<&toml::Value> for RemotePath {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum Passphrase {
+    #[default]
     None,
     Phrase(SmolStr),
     Command(SmolStr),
