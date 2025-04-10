@@ -188,14 +188,11 @@ impl TryFrom<toml::Value> for Backups {
         };
 
         let mut templates = match tab.get("template") {
-            None => BTreeMap::new(),
-            Some(Value::Table(t)) => {
-                let mut map = BTreeMap::new();
-                for (k, v) in t {
-                    map.insert(SmolStr::new(k), PartialBackup::try_from(v)?);
-                }
-                map
-            }
+            None => BTreeMap::<_, PartialBackup>::new(),
+            Some(Value::Table(t)) => t
+                .into_iter()
+                .map(|(k, v)| Ok((k.into(), v.try_into()?)))
+                .collect::<Result<_, ConfigError>>()?,
             Some(v) => {
                 return Err(ConfigError::TypeError {
                     expected: Some("table"),
