@@ -55,60 +55,7 @@ impl Archive {
 
     #[inline]
     pub fn apply_args(&self, command: &mut std::process::Command) -> Result<(), &'static str> {
-        let mut roots = Vec::new();
-
-        for opt in &self.options.0 {
-            match opt {
-                Opt::Root(r) => {
-                    roots.push(r);
-                }
-                Opt::Exclude(excl) => {
-                    command.arg("--exclude");
-                    command.arg(excl);
-                }
-                Opt::ExcludeFrom(excl_from) => {
-                    command.arg("--exclude-from");
-                    command.arg(excl_from);
-                }
-                Opt::Pattern(pattern) => {
-                    command.arg("--pattern");
-                    command.arg(pattern);
-                }
-                Opt::PatternFrom(pattern_from) => {
-                    command.arg("--pattern-from");
-                    command.arg(pattern_from);
-                }
-                Opt::ExcludeCaches => {
-                    command.arg("--exclude-caches");
-                }
-                Opt::ExcludeNoDump => {
-                    command.arg("--exclude-nodump");
-                }
-                Opt::OneFileSystem => {
-                    command.arg("--one-file-system");
-                }
-                Opt::Comment(comment) => {
-                    command.arg("--comment");
-                    command.arg(comment);
-                }
-                Opt::Compression(compression) => {
-                    command.arg("--compression");
-                    command.arg(compression.as_smol_str());
-                }
-                Opt::Passphrase(passphrase) => match *passphrase {
-                    Passphrase::None => {}
-                    Passphrase::Phrase(ref passphrase) => {
-                        command.env("BORG_PASSPHRASE", passphrase);
-                    }
-                    Passphrase::Command(ref passcommand) => {
-                        command.env("BORG_PASSCOMMAND", passcommand);
-                    }
-                    Passphrase::Fd(fd) => {
-                        command.env("BORG_PASSPHRASE_FD", fd.to_string());
-                    }
-                },
-            }
-        }
+        self.options.apply(command);
 
         command.env("BORG_REPO", self.repo.as_smol_str());
 
@@ -118,11 +65,18 @@ impl Archive {
             command.arg(self.name.as_str());
         }
 
-        if let Some(root) = roots.first() {
-            command.current_dir(root.resolve());
+        let mut roots = self.roots().map(PathResolveExt::resolve);
+
+        // First root sets the current directory
+        if let Some(root) = roots.next() {
+            command.arg(root.as_ref());
+            command.current_dir(root);
         }
 
-        command.args(roots);
+        // Rest of the roots
+        for r in roots {
+            command.arg(r.as_ref());
+        }
 
         Ok(())
     }
