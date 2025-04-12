@@ -2,7 +2,10 @@ use std::fmt::Display;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-use crate::borg::{Archive, Passphrase, Repo};
+use crate::{
+    borg::{Archive, Passphrase, Repo},
+    util::ByteSize,
+};
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Result<T> = std::result::Result<T, Error>;
@@ -188,7 +191,7 @@ impl Borg {
         passphrase: &Passphrase,
         encryption: Encryption,
         append_only: bool,
-        storage_quota: Option<usize>,
+        storage_quota: Option<ByteSize>,
         make_parent_dirs: bool,
         on_update: impl Fn(B::Update),
     ) -> Result<()> {
@@ -223,7 +226,7 @@ pub trait Backend {
         passphrase: &Passphrase,
         encryption: Encryption,
         append_only: bool,
-        storage_quota: Option<usize>,
+        storage_quota: Option<ByteSize>,
         make_parent_dirs: bool,
         on_update: impl Fn(Self::Update),
     ) -> Result<()>;
@@ -236,85 +239,4 @@ pub trait Backend {
     ) -> Result<()>;
 
     fn repo_info(repository: &Repo, passphrase: &Passphrase) -> Result<RepoInfo>;
-}
-
-pub struct ByteSize(pub u64);
-
-impl ByteSize {
-    const SUFFIX_SI: [&'static str; 9] = ["", "K", "M", "G", "T", "P", "E", "Z", "Y"];
-    const SUFFIX_IEC: [&'static str; 9] = ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi", "Yi"];
-
-    #[inline]
-    pub fn iec(&self, precision: Option<usize>) -> String {
-        let bytes = self.0 as f64;
-        if bytes < 1024.0 {
-            return bytes.to_string();
-        }
-        let base = (bytes.log2() / 10_f64) as usize;
-        assert!(base < 9);
-        format!(
-            "{:.*}{}",
-            precision.unwrap_or(0),
-            bytes / 1024.0f64.powi(base as i32),
-            Self::SUFFIX_IEC[base]
-        )
-    }
-
-    #[inline]
-    pub fn si(&self, precision: Option<usize>) -> String {
-        let bytes = self.0 as f64;
-        if bytes < 1000_f64 {
-            return bytes.to_string();
-        }
-        let base = (bytes.log10() / 3_f64) as usize;
-        assert!(base < 9);
-        format!(
-            "{:.*}{}",
-            precision.unwrap_or(0),
-            bytes / 1000.0f64.powi(base as i32),
-            Self::SUFFIX_SI[base]
-        )
-    }
-}
-
-impl std::fmt::Display for ByteSize {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match f.alternate() {
-            false => f.write_str(&self.iec(f.precision())),
-            true => f.write_str(&self.si(f.precision())),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_byte_size() {
-        assert_eq!(ByteSize(0).iec(None), "0");
-        assert_eq!(ByteSize(0).si(None), "0");
-        assert_eq!(ByteSize(1).iec(None), "1");
-        assert_eq!(ByteSize(1).si(None), "1");
-        assert_eq!(ByteSize(10).iec(None), "10");
-        assert_eq!(ByteSize(10).si(None), "10");
-        assert_eq!(ByteSize(100).iec(None), "100");
-        assert_eq!(ByteSize(100).si(None), "100");
-        assert_eq!(ByteSize(1000).iec(None), "1000");
-        assert_eq!(ByteSize(1000).si(None), "1K");
-        assert_eq!(ByteSize(1024).iec(None), "1Ki");
-        assert_eq!(ByteSize(1024).si(None), "1K");
-        assert_eq!(ByteSize(1024).iec(Some(3)), "1.000Ki");
-        assert_eq!(ByteSize(1024).si(Some(3)), "1.024K");
-        assert_eq!(ByteSize(1025).iec(None), "1Ki");
-        assert_eq!(ByteSize(1025).si(None), "1K");
-        assert_eq!(ByteSize(1025).iec(Some(0)), "1Ki");
-        assert_eq!(ByteSize(1025).si(Some(0)), "1K");
-        assert_eq!(ByteSize(1025).iec(Some(1)), "1.0Ki");
-        assert_eq!(ByteSize(1025).si(Some(1)), "1.0K");
-        assert_eq!(ByteSize(1025).iec(Some(2)), "1.00Ki");
-        assert_eq!(ByteSize(1025).si(Some(2)), "1.02K");
-        assert_eq!(ByteSize(1025).iec(Some(3)), "1.001Ki");
-        assert_eq!(ByteSize(1025).si(Some(3)), "1.025K");
-    }
 }

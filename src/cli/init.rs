@@ -1,5 +1,5 @@
 use super::*;
-use crate::{backend, borg::Repo, Borg, Encryption};
+use crate::{backend, borg::Repo, util::ByteSize, Borg, Encryption};
 
 #[derive(Args, Debug)]
 pub struct Args {
@@ -12,8 +12,8 @@ pub struct Args {
     append_only: bool,
 
     /// Set storage quota of the new repository (e.g. 5G, 1.5T). Default: no quota.
-    #[arg(long,value_parser = parse_byte_size)]
-    storage_quota: Option<usize>,
+    #[arg(long, value_parser = <ByteSize as std::str::FromStr>::from_str)]
+    storage_quota: Option<ByteSize>,
 
     /// Create the parent directories of the repository directory, if they are missing.
     #[arg(long, default_value = "false")]

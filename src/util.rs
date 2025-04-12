@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     path::{Path, PathBuf},
+    str::FromStr,
     sync::LazyLock,
 };
 
@@ -24,6 +25,148 @@ pub trait PathResolveExt: AsRef<Path> {
 
 impl<T: AsRef<Path>> PathResolveExt for T {}
 
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum ParseByteSizeError {
+    #[error("Invalid suffix '{}'", 0 as char)]
+    InvalidSuffix(u8),
+    #[error(transparent)]
+    InvalidInt(#[from] std::num::ParseFloatError),
+    #[error("Invalid UTF8")]
+    Utf8Error,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ByteSize(pub u64);
+
+impl FromStr for ByteSize {
+    type Err = ParseByteSizeError;
+
+    #[inline]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let ascii = s.as_bytes();
+        let (num, fac) = match ascii {
+            [num @ .., b'K'] => (num, 1_000f64),
+            [num @ .., b'M'] => (num, 1_000_000f64),
+            [num @ .., b'G'] => (num, 1_000_000_000f64),
+            [num @ .., b'T'] => (num, 1_000_000_000_000f64),
+            [num @ .., b'P'] => (num, 1_000_000_000_000_000f64),
+            [num @ .., b'E'] => (num, 1_000_000_000_000_000_000f64),
+            [.., s] if !s.is_ascii_digit() => return Err(ParseByteSizeError::InvalidSuffix(*s)),
+            num => (num, 0f64),
+        };
+
+        let Ok(num) = std::str::from_utf8(num) else {
+            return Err(ParseByteSizeError::Utf8Error);
+        };
+
+        let num = num.parse::<f64>()?;
+        let num = num * fac;
+        Ok(Self(num as u64))
+    }
+}
+
+impl ByteSize {
+    #[inline]
+    pub fn fmt_iec(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use std::fmt::Debug;
+        const KIBI: u64 = 1024;
+        const MEBI: u64 = KIBI * 1024;
+        const GIBI: u64 = MEBI * 1024;
+        const TEBI: u64 = GIBI * 1024;
+        const PEBI: u64 = TEBI * 1024;
+        const EXBI: u64 = PEBI * 1024;
+
+        match self.0 {
+            b @ ..KIBI => b.fmt(f),
+            EXBI => f.write_str("1EI"),
+            b @ EXBI.. => {
+                (b as f64 / 1152921504606846976f64).fmt(f)?;
+                f.write_str("Ei")
+            }
+            PEBI => f.write_str("1Pi"),
+            b @ PEBI.. => {
+                (b as f64 / 1125899906842624f64).fmt(f)?;
+                f.write_str("Pi")
+            }
+            TEBI => f.write_str("1Ti"),
+            b @ TEBI.. => {
+                (b as f64 / 1099511627776f64).fmt(f)?;
+                f.write_str("Ti")
+            }
+            GIBI => f.write_str("1Gi"),
+            b @ GIBI.. => {
+                (b as f64 / 1073741824f64).fmt(f)?;
+                f.write_str("Gi")
+            }
+            MEBI => f.write_str("1Mi"),
+            b @ MEBI.. => {
+                (b as f64 / 1048576f64).fmt(f)?;
+                f.write_str("Mi")
+            }
+            KIBI => f.write_str("1Ki"),
+            b @ KIBI.. => {
+                (b as f64 / 1024f64).fmt(f)?;
+                f.write_str("Ki")
+            }
+        }
+    }
+
+    #[inline]
+    pub fn fmt_si(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use std::fmt::Debug;
+        const KILO: u64 = 1000;
+        const MEGA: u64 = KILO * 1000;
+        const GIGA: u64 = MEGA * 1000;
+        const TERA: u64 = GIGA * 1000;
+        const PETA: u64 = TERA * 1000;
+        const EXA: u64 = PETA * 1000;
+
+        match self.0 {
+            b @ ..KILO => b.fmt(f),
+            EXA => f.write_str("1E"),
+            b @ EXA.. => {
+                (b as f64 / 1000000000000000000f64).fmt(f)?;
+                f.write_str("E")
+            }
+            PETA => f.write_str("1P"),
+            b @ PETA.. => {
+                (b as f64 / 1000000000000000f64).fmt(f)?;
+                f.write_str("P")
+            }
+            TERA => f.write_str("1T"),
+            b @ TERA.. => {
+                (b as f64 / 1000000000000f64).fmt(f)?;
+                f.write_str("T")
+            }
+            GIGA => f.write_str("1G"),
+            b @ GIGA.. => {
+                (b as f64 / 1000000000f64).fmt(f)?;
+                f.write_str("G")
+            }
+            MEGA => f.write_str("1M"),
+            b @ MEGA.. => {
+                (b as f64 / 1000000f64).fmt(f)?;
+                f.write_str("M")
+            }
+            KILO => f.write_str("1K"),
+            b @ KILO.. => {
+                (b as f64 / 1000f64).fmt(f)?;
+                f.write_str("K")
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for ByteSize {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if f.alternate() {
+            self.fmt_si(f)
+        } else {
+            self.fmt_iec(f)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -41,5 +184,34 @@ mod tests {
 
         let home_only = PathBuf::from("~");
         assert_ne!(home_only, home_only.resolve());
+    }
+
+    #[test]
+    fn test_byte_size() {
+        const ZERO: ByteSize = ByteSize(0);
+        const ONE: ByteSize = ByteSize(1);
+        const TEN: ByteSize = ByteSize(10);
+        const HUNDRED: ByteSize = ByteSize(100);
+        const THOUSAND: ByteSize = ByteSize(1000);
+        const KIBI: ByteSize = ByteSize(1024);
+        const TEN25: ByteSize = ByteSize(1025);
+        const MEGA: ByteSize = ByteSize(1024 * 1024);
+
+        assert_eq!(format!("{ZERO:}"), "0");
+        assert_eq!(format!("{ZERO:#}"), "0");
+        assert_eq!(format!("{ONE:}"), "1");
+        assert_eq!(format!("{ONE:#}"), "1");
+        assert_eq!(format!("{TEN:}"), "10");
+        assert_eq!(format!("{TEN:#}"), "10");
+        assert_eq!(format!("{HUNDRED:}"), "100");
+        assert_eq!(format!("{HUNDRED:#}"), "100");
+        assert_eq!(format!("{THOUSAND:}"), "1000");
+        assert_eq!(format!("{THOUSAND:#}"), "1K");
+        assert_eq!(format!("{KIBI:}"), "1Ki");
+        assert_eq!(format!("{KIBI:#}"), "1.024K");
+        assert_eq!(format!("{TEN25:.3}"), "1.001Ki");
+        assert_eq!(format!("{TEN25:#}"), "1.025K");
+        assert_eq!(format!("{MEGA:}"), "1Mi");
+        assert_eq!(format!("{MEGA:#.3}"), "1.049M");
     }
 }

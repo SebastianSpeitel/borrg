@@ -1,6 +1,7 @@
 use crate::{
     borg::{Archive, Passphrase, Repo},
     borrg::*,
+    util::ByteSize,
 };
 use log::{debug, trace, warn, Level};
 use std::{
@@ -436,7 +437,7 @@ impl Backend for BorgWrapper {
         passphrase: &Passphrase,
         encryption: Encryption,
         append_only: bool,
-        storage_quota: Option<usize>,
+        storage_quota: Option<ByteSize>,
         make_parent_dirs: bool,
         on_update: impl Fn(Event),
     ) -> Result<()> {
