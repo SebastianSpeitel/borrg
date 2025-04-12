@@ -33,9 +33,11 @@ pub enum ParseByteSizeError {
     InvalidInt(#[from] std::num::ParseFloatError),
     #[error("Invalid UTF8")]
     Utf8Error,
+    #[error("Negative byte size")]
+    Negative,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ByteSize(pub u64);
 
 impl FromStr for ByteSize {
@@ -61,13 +63,19 @@ impl FromStr for ByteSize {
 
         let num = num.parse::<f64>()?;
         let num = num * fac;
-        Ok(Self(num as u64))
+        if num.is_sign_negative() {
+            return Err(ParseByteSizeError::Negative);
+        }
+        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+        let num = num as u64;
+        Ok(Self(num))
     }
 }
 
 impl ByteSize {
+    #[allow(clippy::cast_precision_loss)]
     #[inline]
-    pub fn fmt_iec(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    pub fn fmt_iec(self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use std::fmt::Debug;
         const KIBI: u64 = 1024;
         const MEBI: u64 = KIBI * 1024;
@@ -111,8 +119,9 @@ impl ByteSize {
         }
     }
 
+    #[allow(clippy::cast_precision_loss)]
     #[inline]
-    pub fn fmt_si(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    pub fn fmt_si(self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use std::fmt::Debug;
         const KILO: u64 = 1000;
         const MEGA: u64 = KILO * 1000;
