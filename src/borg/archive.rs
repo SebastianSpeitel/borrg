@@ -13,15 +13,6 @@ pub struct Archive {
 
 impl Archive {
     #[inline]
-    pub fn new(repo: Repo<'static>, name: impl AsRef<str>) -> Self {
-        Self {
-            repo,
-            name: name.as_ref().into(),
-            options: Options::default(),
-        }
-    }
-
-    #[inline]
     #[must_use]
     pub const fn name(&self) -> &SmolStr {
         &self.name
@@ -67,16 +58,27 @@ impl Archive {
 
         let mut roots = self.roots().map(PathResolveExt::resolve);
 
-        // First root sets the current directory
+        let cwd;
+
         if let Some(root) = roots.next() {
             command.arg(root.as_ref());
-            command.current_dir(root);
+            for r in roots {
+                command.arg(r.as_ref());
+            }
+            // First root sets the current directory
+            cwd = root;
+        } else {
+            let home = "~".resolve();
+            command.arg(home.as_ref());
+            cwd = home;
         }
 
-        // Rest of the roots
-        for r in roots {
-            command.arg(r.as_ref());
+        if cwd.join(".borgignore").is_file() {
+            command.arg("--exclude-from");
+            command.arg(".borgignore");
         }
+
+        command.current_dir(cwd);
 
         Ok(())
     }

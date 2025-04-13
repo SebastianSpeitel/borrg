@@ -55,16 +55,6 @@ pub struct PartialBackup {
 
 impl PartialBackup {
     #[inline]
-    pub fn set_defaults(&mut self) {
-        if !self.options.has_root() {
-            self.options.root(SmolStr::new_static("~"));
-        }
-
-        self.options
-            .exclude_from(SmolStr::new_static(".borgignore"));
-    }
-
-    #[inline]
     pub fn resolve(self, templates: &BTreeMap<SmolStr, Self>) -> Result<Archive, ConfigError> {
         let template = self.template.ok_or("Root template can't be resolved")?;
 
@@ -186,7 +176,7 @@ impl TryFrom<toml::Value> for Backups {
             }
         };
 
-        let mut templates = match tab.get("template") {
+        let templates = match tab.get("template") {
             None => BTreeMap::<_, PartialBackup>::new(),
             Some(Value::Table(t)) => t
                 .into_iter()
@@ -199,11 +189,6 @@ impl TryFrom<toml::Value> for Backups {
                 })
             }
         };
-
-        templates
-            .entry(SmolStr::new_static("default"))
-            .or_default()
-            .set_defaults();
 
         dbg!(&templates);
 
