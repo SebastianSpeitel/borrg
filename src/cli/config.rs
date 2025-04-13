@@ -156,7 +156,7 @@ impl Config {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct Backups(Vec<Archive>);
 
 impl TryFrom<toml::Value> for Backups {
@@ -209,6 +209,13 @@ impl TryFrom<toml::Value> for Backups {
         dbg!(&backups);
 
         Ok(Self(backups))
+    }
+}
+
+impl core::fmt::Debug for Backups {
+    #[inline]
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_list().entries(self.iter()).finish()
     }
 }
 
