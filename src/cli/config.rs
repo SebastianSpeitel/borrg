@@ -268,7 +268,7 @@ mod tests {
         let backup = backups.first().unwrap();
         assert_eq!(backup.repo.to_string(), ".");
         assert_eq!(backup.passphrase(), None);
-        assert!(backup.roots().any(|p| p == "~"));
+        assert!(backup.roots().next().is_none());
         assert!(backup.compression().is_none());
         // assert_eq!(archive.pattern_file, None);
         // assert_eq!(archive.exclude_file, Some(PathBuf::from(".borgignore")));
