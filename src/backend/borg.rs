@@ -15,44 +15,38 @@ use std::{
 impl TryFrom<serde_json::Value> for Event {
     type Error = Error;
     fn try_from(value: serde_json::Value) -> Result<Self> {
-        let r#type = match value.get("type") {
+        let obj = value.as_object().ok_or("not an object")?;
+
+        let r#type = match obj.get("type") {
             Some(serde_json::Value::String(t)) => t,
             _ => return Err("no type".into()),
         };
 
         let time = || {
-            value
-                .get("time")
+            obj.get("time")
                 .and_then(|t| t.as_f64())
                 .and_then(|t| SystemTime::UNIX_EPOCH.checked_add(Duration::from_secs_f64(t)))
         };
 
-        let nfiles = || value.get("nfiles").and_then(|n| n.as_u64());
-        let compressed_size = || value.get("compressed_size").and_then(|s| s.as_u64());
-        let deduplicated_size = || value.get("deduplicated_size").and_then(|s| s.as_u64());
-        let original_size = || value.get("original_size").and_then(|s| s.as_u64());
-        let path = || {
-            value
-                .get("path")
-                .and_then(|p| p.as_str())
-                .map(PathBuf::from)
-        };
+        let nfiles = || obj.get("nfiles").and_then(|n| n.as_u64());
+        let compressed_size = || obj.get("compressed_size").and_then(|s| s.as_u64());
+        let deduplicated_size = || obj.get("deduplicated_size").and_then(|s| s.as_u64());
+        let original_size = || obj.get("original_size").and_then(|s| s.as_u64());
+        let path = || obj.get("path").and_then(|p| p.as_str()).map(PathBuf::from);
         let message = || {
-            value
-                .get("message")
+            obj.get("message")
                 .and_then(|m| m.as_str())
                 .map(ToOwned::to_owned)
         };
-        let finished = || value.get("finished").and_then(|f| f.as_bool());
+        let finished = || obj.get("finished").and_then(|f| f.as_bool());
         let msgid = || {
-            value
-                .get("msgid")
+            obj.get("msgid")
                 .and_then(|m| m.as_str())
                 .map(ToOwned::to_owned)
         };
-        let operation = || value.get("operation").and_then(|o| o.as_u64());
+        let operation = || obj.get("operation").and_then(|o| o.as_u64());
         let level = || {
-            if let Some(l) = value
+            if let Some(l) = obj
                 .get("level")
                 .and_then(|l| l.as_str())
                 .and_then(|l| match l {
@@ -69,7 +63,7 @@ impl TryFrom<serde_json::Value> for Event {
                 return Some(l);
             }
 
-            if let Some(l) = value
+            if let Some(l) = obj
                 .get("levelname")
                 .and_then(|l| l.as_str())
                 .and_then(|l| match l {
@@ -89,22 +83,19 @@ impl TryFrom<serde_json::Value> for Event {
             None
         };
         let name = || {
-            value
-                .get("name")
+            obj.get("name")
                 .and_then(|n| n.as_str())
                 .map(ToOwned::to_owned)
         };
         let status = || {
-            value
-                .get("status")
+            obj.get("status")
                 .and_then(|s| s.as_str())
                 .map(ToOwned::to_owned)
         };
-        let current = || value.get("current").and_then(|c| c.as_u64());
-        let total = || value.get("total").and_then(|t| t.as_u64());
+        let current = || obj.get("current").and_then(|c| c.as_u64());
+        let total = || obj.get("total").and_then(|t| t.as_u64());
         let env_var = || {
-            value
-                .get("env_var")
+            obj.get("env_var")
                 .and_then(|e| e.as_str())
                 .map(ToOwned::to_owned)
         };
