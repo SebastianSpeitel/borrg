@@ -202,33 +202,6 @@ impl<R: Read> Iterator for Events<R> {
     }
 }
 
-fn log_command(cmd: &Command) {
-    debug!("Executing command: {cmd:?}");
-    // let command = format!(
-    //     "{} {}",
-    //     cmd.get_program().to_string_lossy(),
-    //     cmd.get_args()
-    //         .map(|a| format!("\"{}\"", a.to_string_lossy()))
-    //         .collect::<Vec<_>>()
-    //         .join(" ")
-    // );
-    // let env = cmd
-    //     .get_envs()
-    //     .map(|(k, v)| {
-    //         format!(
-    //             "{}={:?}",
-    //             k.to_string_lossy(),
-    //             v.map(OsStr::to_string_lossy)
-    //         )
-    //     })
-    //     .collect::<Vec<_>>()
-    //     .join(" ");
-    // debug!(
-    //     "Executing command: {command} in {:#?} with {env}",
-    //     cmd.get_current_dir()
-    // );
-}
-
 impl TryFrom<serde_json::Value> for RepoInfo {
     type Error = Error;
     fn try_from(value: serde_json::Value) -> Result<Self> {
@@ -463,7 +436,7 @@ impl Backend for BorgWrapper {
         // Don't let borg ask if the passphrase should be displayed
         cmd.env("BORG_DISPLAY_PASSPHRASE", "no");
 
-        log_command(&cmd);
+        dbg!(&cmd.0);
 
         cmd.stderr(Stdio::piped());
         let mut child = cmd.spawn()?;
@@ -502,7 +475,7 @@ impl Backend for BorgWrapper {
 
         archive.apply_args(&mut cmd)?;
 
-        log_command(&cmd);
+        dbg!(&cmd.0);
 
         cmd.stderr(Stdio::piped());
         let mut child = cmd.spawn()?;
@@ -531,7 +504,7 @@ impl Backend for BorgWrapper {
         cmd.arg("--json");
         cmd.arg(repository.to_string());
 
-        log_command(&cmd);
+        dbg!(&cmd.0);
 
         let output = cmd.output()?;
 
