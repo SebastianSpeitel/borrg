@@ -23,7 +23,7 @@ pub fn run(mut borg: Borg, config: Config, args: Args) {
 
     let mut handles = vec![];
     for (idx, backup) in config.backups.into_iter().enumerate() {
-        let pb = mp.add(indicatif::ProgressBar::new(u64::MAX));
+        let pb = mp.add(indicatif::ProgressBar::no_length());
         let prefix = if multi {
             format!("[{}] ", &backup.repo)
         } else {
@@ -40,7 +40,7 @@ pub fn run(mut borg: Borg, config: Config, args: Args) {
             .tick_strings(&["▱▱▱▱", "▰▱▱▱", "▰▰▱▱", "▱▰▰▱", "▱▱▰▰", "▱▱▱▰", "▰▰▰▰"]);
         pb.set_style(sty);
 
-        pb.enable_steady_tick(Duration::from_secs(1));
+        // pb.enable_steady_tick(Duration::from_secs(1));
         // indicatif::ProgressStyle::with_template(&template)
         //     //.tick_strings(&vec!["▱▱▱▱", "▰▱▱▱", "▰▰▱▱", "▱▰▰▱", "▱▱▰▰", "▱▱▱▰"])
         //     .template(&template),
@@ -55,7 +55,7 @@ pub fn run(mut borg: Borg, config: Config, args: Args) {
             });
 
             if let Err(e) = res {
-                tx.send((idx, crate::Event::Error(e))).unwrap();
+                tx.send((idx, e.into())).unwrap();
             }
         });
 
@@ -66,37 +66,24 @@ pub fn run(mut borg: Borg, config: Config, args: Args) {
 
     for (idx, event) in rx {
         let (_, pb, prefix) = &mut handles[idx];
-        use crate::borrg::Event as E;
-        match event {
-            E::ArchiveProgress {
-                nfiles,
-                original_size,
-                compressed_size,
-                deduplicated_size,
-                path,
-                ..
-            } => {
-                let mut prefix = Vec::with_capacity(4);
-                prefix.push(format!("O {}", indicatif::HumanBytes(original_size)));
 
-                prefix.push(format!("C {}", indicatif::HumanBytes(compressed_size)));
-
-                prefix.push(format!("D {}", indicatif::HumanBytes(deduplicated_size)));
-
-                pb.set_position(nfiles);
-                prefix.push(format!("N {nfiles}"));
-
-                pb.set_prefix(prefix.join(" "));
-
-                pb.set_message(format!("{}", path.display()));
-            }
-            E::Error(e) => {
-                pb.println(format!("{prefix}Error: {e}"));
-            }
-            ev => {
-                pb.println(format!("{prefix}{ev}"));
-            }
+        if event.r#type() == "archive_progress" {
+            event.update_progress(pb);
+            pb.enable_steady_tick(Duration::from_secs(1));
+            continue;
         }
+
+        if event.r#type() == "question_prompt" {
+            pb.disable_steady_tick();
+        }
+
+        if let Some(err) = event.error() {
+            pb.println(format!("{prefix}Error: {err}"));
+        }
+
+        let line = format!("{prefix}{event}");
+
+        pb.println(line);
     }
 
     mp.clear().unwrap();

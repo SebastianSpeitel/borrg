@@ -47,7 +47,7 @@ impl FromStr for ByteSize {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let ascii = s.as_bytes();
         let (num, fac) = match ascii {
-            [num @ .., b'K'] => (num, 1_000f64),
+            [num @ .., b'K' | b'k'] => (num, 1_000f64),
             [num @ .., b'M'] => (num, 1_000_000f64),
             [num @ .., b'G'] => (num, 1_000_000_000f64),
             [num @ .., b'T'] => (num, 1_000_000_000_000f64),
@@ -86,29 +86,29 @@ impl ByteSize {
 
         match self.0 {
             b @ ..KIBI => b.fmt(f),
-            EXBI => f.write_str("1EI"),
+            EXBI => f.write_str("1Ei"),
             b @ EXBI.. => {
-                (b as f64 / 1152921504606846976f64).fmt(f)?;
+                (b as f64 / 1_152_921_504_606_846_976f64).fmt(f)?;
                 f.write_str("Ei")
             }
             PEBI => f.write_str("1Pi"),
             b @ PEBI.. => {
-                (b as f64 / 1125899906842624f64).fmt(f)?;
+                (b as f64 / 1_125_899_906_842_624f64).fmt(f)?;
                 f.write_str("Pi")
             }
             TEBI => f.write_str("1Ti"),
             b @ TEBI.. => {
-                (b as f64 / 1099511627776f64).fmt(f)?;
+                (b as f64 / 1_099_511_627_776f64).fmt(f)?;
                 f.write_str("Ti")
             }
             GIBI => f.write_str("1Gi"),
             b @ GIBI.. => {
-                (b as f64 / 1073741824f64).fmt(f)?;
+                (b as f64 / 1_073_741_824f64).fmt(f)?;
                 f.write_str("Gi")
             }
             MEBI => f.write_str("1Mi"),
             b @ MEBI.. => {
-                (b as f64 / 1048576f64).fmt(f)?;
+                (b as f64 / 1_048_576f64).fmt(f)?;
                 f.write_str("Mi")
             }
             KIBI => f.write_str("1Ki"),
@@ -134,33 +134,33 @@ impl ByteSize {
             b @ ..KILO => b.fmt(f),
             EXA => f.write_str("1E"),
             b @ EXA.. => {
-                (b as f64 / 1000000000000000000f64).fmt(f)?;
+                (b as f64 / 1_000_000_000_000_000_000f64).fmt(f)?;
                 f.write_str("E")
             }
             PETA => f.write_str("1P"),
             b @ PETA.. => {
-                (b as f64 / 1000000000000000f64).fmt(f)?;
+                (b as f64 / 1_000_000_000_000_000f64).fmt(f)?;
                 f.write_str("P")
             }
             TERA => f.write_str("1T"),
             b @ TERA.. => {
-                (b as f64 / 1000000000000f64).fmt(f)?;
-                f.write_str("T")
+                (b as f64 / 1_000_000_000_000f64).fmt(f)?;
+                f.write_str("TB")
             }
             GIGA => f.write_str("1G"),
             b @ GIGA.. => {
-                (b as f64 / 1000000000f64).fmt(f)?;
+                (b as f64 / 1_000_000_000f64).fmt(f)?;
                 f.write_str("G")
             }
             MEGA => f.write_str("1M"),
             b @ MEGA.. => {
-                (b as f64 / 1000000f64).fmt(f)?;
+                (b as f64 / 1_000_000f64).fmt(f)?;
                 f.write_str("M")
             }
-            KILO => f.write_str("1K"),
+            KILO => f.write_str("1k"),
             b @ KILO.. => {
                 (b as f64 / 1000f64).fmt(f)?;
-                f.write_str("K")
+                f.write_str("k")
             }
         }
     }
@@ -215,11 +215,11 @@ mod tests {
         assert_eq!(format!("{HUNDRED:}"), "100");
         assert_eq!(format!("{HUNDRED:#}"), "100");
         assert_eq!(format!("{THOUSAND:}"), "1000");
-        assert_eq!(format!("{THOUSAND:#}"), "1K");
+        assert_eq!(format!("{THOUSAND:#}"), "1k");
         assert_eq!(format!("{KIBI:}"), "1Ki");
-        assert_eq!(format!("{KIBI:#}"), "1.024K");
+        assert_eq!(format!("{KIBI:#}"), "1.024k");
         assert_eq!(format!("{TEN25:.3}"), "1.001Ki");
-        assert_eq!(format!("{TEN25:#}"), "1.025K");
+        assert_eq!(format!("{TEN25:#}"), "1.025k");
         assert_eq!(format!("{MEGA:}"), "1Mi");
         assert_eq!(format!("{MEGA:#.3}"), "1.049M");
     }

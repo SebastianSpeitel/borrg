@@ -1,206 +1,13 @@
 use crate::{
-    borg::{Archive, Passphrase, Repo},
+    borg::{log::Event, Archive, Passphrase, Repo},
     borrg::*,
     util::ByteSize,
 };
-use log::{debug, trace, warn, Level};
 use std::{
-    io::{BufRead, BufReader, Lines, Read},
     ops::{Deref, DerefMut},
     path::PathBuf,
     process::{Command, Stdio},
-    time::{Duration, SystemTime},
 };
-
-impl TryFrom<serde_json::Value> for Event {
-    type Error = Error;
-    fn try_from(value: serde_json::Value) -> Result<Self> {
-        let obj = value.as_object().ok_or("not an object")?;
-
-        let r#type = match obj.get("type") {
-            Some(serde_json::Value::String(t)) => t,
-            _ => return Err("no type".into()),
-        };
-
-        let time = || {
-            obj.get("time")
-                .and_then(|t| t.as_f64())
-                .and_then(|t| SystemTime::UNIX_EPOCH.checked_add(Duration::from_secs_f64(t)))
-        };
-
-        let nfiles = || obj.get("nfiles").and_then(|n| n.as_u64());
-        let compressed_size = || obj.get("compressed_size").and_then(|s| s.as_u64());
-        let deduplicated_size = || obj.get("deduplicated_size").and_then(|s| s.as_u64());
-        let original_size = || obj.get("original_size").and_then(|s| s.as_u64());
-        let path = || obj.get("path").and_then(|p| p.as_str()).map(PathBuf::from);
-        let message = || {
-            obj.get("message")
-                .and_then(|m| m.as_str())
-                .map(ToOwned::to_owned)
-        };
-        let finished = || obj.get("finished").and_then(|f| f.as_bool());
-        let msgid = || {
-            obj.get("msgid")
-                .and_then(|m| m.as_str())
-                .map(ToOwned::to_owned)
-        };
-        let operation = || obj.get("operation").and_then(|o| o.as_u64());
-        let level = || {
-            if let Some(l) = obj
-                .get("level")
-                .and_then(|l| l.as_str())
-                .and_then(|l| match l {
-                    "debug" => Some(Level::Debug),
-                    "info" => Some(Level::Info),
-                    "warning" => Some(Level::Warn),
-                    "error" => Some(Level::Error),
-                    _ => {
-                        warn!("unknown log level: {l}");
-                        None
-                    }
-                })
-            {
-                return Some(l);
-            }
-
-            if let Some(l) = obj
-                .get("levelname")
-                .and_then(|l| l.as_str())
-                .and_then(|l| match l {
-                    "DEBUG" => Some(Level::Debug),
-                    "INFO" => Some(Level::Info),
-                    "WARNING" => Some(Level::Warn),
-                    "ERROR" => Some(Level::Error),
-                    _ => {
-                        warn!("unknown log level: {l}");
-                        None
-                    }
-                })
-            {
-                return Some(l);
-            }
-
-            None
-        };
-        let name = || {
-            obj.get("name")
-                .and_then(|n| n.as_str())
-                .map(ToOwned::to_owned)
-        };
-        let status = || {
-            obj.get("status")
-                .and_then(|s| s.as_str())
-                .map(ToOwned::to_owned)
-        };
-        let current = || obj.get("current").and_then(|c| c.as_u64());
-        let total = || obj.get("total").and_then(|t| t.as_u64());
-        let env_var = || {
-            obj.get("env_var")
-                .and_then(|e| e.as_str())
-                .map(ToOwned::to_owned)
-        };
-
-        let event = match r#type.as_str() {
-            "archive_progress" => Self::ArchiveProgress {
-                nfiles: nfiles().unwrap_or_default(),
-                compressed_size: compressed_size().unwrap_or_default(),
-                deduplicated_size: deduplicated_size().unwrap_or_default(),
-                original_size: original_size().unwrap_or_default(),
-                path: path().unwrap_or_default(),
-                time: time(),
-            },
-            "progress_message" => Self::ProgressMessage {
-                message: message(),
-                finished: finished(),
-                msgid: msgid(),
-                operation: operation(),
-                time: time(),
-            },
-            "log_message" => Self::LogMessage {
-                name: name(),
-                level: level(),
-                message: message().unwrap_or_default(),
-                msgid: msgid(),
-                time: time(),
-            },
-            "file_status" => Self::FileStatus {
-                path: path().unwrap_or_default(),
-                status: status().unwrap_or_default(),
-            },
-            "progress_percent" => Self::ProgressPercent {
-                current: current().unwrap_or_default(),
-                finished: finished().unwrap_or_default(),
-                message: message().unwrap_or_default(),
-                msgid: msgid().unwrap_or_default(),
-                operation: operation().unwrap_or_default(),
-                time: time().unwrap_or_else(|| {
-                    warn!("no time in progress_percent");
-                    SystemTime::now()
-                }),
-                total: total().unwrap_or_default(),
-            },
-            "question_prompt" => Self::Prompt {
-                prompt: message().unwrap(),
-                msgid: msgid().unwrap(),
-            },
-            "question_env_answer" => Self::Answer {
-                answer: message().unwrap(),
-                env_var: env_var(),
-                msgid: msgid().unwrap(),
-            },
-            _ => return Err(format!("Unknown event type: {type}").into()),
-        };
-        Ok(event)
-    }
-}
-
-pub struct Events<R: Read> {
-    lines: Lines<BufReader<R>>,
-}
-
-impl<R: Read> From<R> for Events<R> {
-    fn from(readable: R) -> Self {
-        Self {
-            lines: BufReader::new(readable).lines(),
-        }
-    }
-}
-
-impl<R: Read> Iterator for Events<R> {
-    type Item = Event;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let line = self.lines.next()?;
-        let line = match line {
-            Ok(line) => line,
-            Err(err) => return Some(Event::Error(Box::new(err))),
-        };
-
-        trace!("[borg] {line:#?}");
-
-        let json: std::result::Result<serde_json::Value, _> = serde_json::from_str(&line);
-        let json = match json {
-            Ok(json) => json,
-            Err(e) => {
-                warn!("Failed to parse borg log event: {line:?} ({e})");
-                return Some(Event::Other(line));
-            }
-        };
-
-        debug!("{json:#?}");
-
-        match Event::try_from(json) {
-            Ok(event) => {
-                debug!("{event:#?}");
-                Some(event)
-            }
-            Err(e) => {
-                warn!("Unknown borg log event: {line:?} ({e})");
-                Some(Event::Other(line))
-            }
-        }
-    }
-}
 
 impl TryFrom<serde_json::Value> for RepoInfo {
     type Error = Error;
@@ -448,7 +255,7 @@ impl Backend for BorgWrapper {
             None => return Err("No stderr".into()),
         };
 
-        for event in Events::from(stderr) {
+        for event in crate::borg::log::read(stderr) {
             on_update(event);
         }
 
@@ -487,7 +294,7 @@ impl Backend for BorgWrapper {
             None => return Err("No stderr".into()),
         };
 
-        for event in Events::from(stderr) {
+        for event in crate::borg::log::read(stderr) {
             on_update(event);
         }
 

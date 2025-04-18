@@ -4,6 +4,7 @@ use smol_str::SmolStr;
 
 pub mod archive;
 pub mod compression;
+pub mod log;
 mod options;
 pub mod repo;
 
